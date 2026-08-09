@@ -32,7 +32,7 @@ beforeEach(() => {
   vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     const path = new URL(url).pathname;
-    if (path.startsWith("/v1/group-") && init?.body) groupedRequestBodies.push({ path, body: JSON.parse(String(init.body)) as Record<string, unknown> });
+    if ((path.startsWith("/v1/group-") || path === "/v1/topic-impact-years" || path === "/v1/topic-actors") && init?.body) groupedRequestBodies.push({ path, body: JSON.parse(String(init.body)) as Record<string, unknown> });
     if (url.endsWith("/health")) return envelope({ status: "ok", version: "v1" });
     if (url.endsWith("/v1/openalex-subfields")) return envelope({ subfields: subfieldFixtures });
     if (url.endsWith("/v1/openalex-subfield-sources")) return envelope({ sources: [{ id: "S1", displayName: "Optics Express", issnL: "1094-4087", issns: ["1094-4087"], type: "journal", worksCount: 1000 }], nextCursor: null });
@@ -43,6 +43,18 @@ beforeEach(() => {
     if (url.endsWith("/v1/group-topic-years")) {
       const body = JSON.parse(String(init?.body)) as { topicId: string };
       return envelope({ meta: { documentCount: 100, nextCursor: null }, groups: [2020, 2021, 2022, 2023, 2024].map((year, index) => ({ id: String(year), displayName: String(year), count: (body.topicId === "T1" ? 20 : 10) + index * 5 })) });
+    }
+    if (url.endsWith("/v1/topic-impact-years")) return envelope({
+      top10: { meta: { documentCount: 20, nextCursor: null }, groups: [2020, 2021, 2022, 2023, 2024].map((year) => ({ id: String(year), displayName: String(year), count: 4 })) },
+      top1: { meta: { documentCount: 5, nextCursor: null }, groups: [2020, 2021, 2022, 2023, 2024].map((year) => ({ id: String(year), displayName: String(year), count: 1 })) },
+    });
+    if (url.endsWith("/v1/topic-actors")) {
+      const body = JSON.parse(String(init?.body)) as { dimension: "country" | "institution"; startYear: number };
+      const recent = body.startYear >= 2022;
+      const groups = body.dimension === "country"
+        ? [{ id: "ES", displayName: "ES", count: recent ? 30 : 10 }]
+        : [{ id: "I1", displayName: "Universitat de València", count: recent ? 18 : 5 }];
+      return envelope({ meta: { documentCount: recent ? 50 : 25 }, groups, truncated: false });
     }
     if (url.endsWith("/v1/group-sources")) return envelope({ meta: { documentCount: 100, nextCursor: null }, groups: [{ id: "S1", displayName: "Optics Express", count: 100 }] });
     if (url.endsWith("/v1/group-topic-cooccurrence")) return envelope({ meta: { documentCount: 60, nextCursor: null }, groups: [{ id: "T2", displayName: "Integrated photonics", count: 20 }] });
@@ -122,6 +134,10 @@ describe("application workflow", () => {
     expect(await screen.findByRole("heading", { name: "Topic trends" })).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByText(/Loading grouped/)).not.toBeInTheDocument());
     expect(screen.getByRole("heading", { name: "Period comparison" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Topic lifecycle radar" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Normalized citation impact" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Analyze actors" }));
+    expect(await screen.findByText("Universitat de València")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: "Journals" }));
     expect(await screen.findByText("Optics Express", { selector: 'td[data-label="Journal"]' })).toBeInTheDocument();
@@ -135,7 +151,7 @@ describe("application workflow", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: "Methodology" }));
     expect(screen.getByText(/not official JCR analytics/)).toBeInTheDocument();
-    for (const path of ["/v1/group-primary-topics", "/v1/group-category-years", "/v1/group-topic-years", "/v1/group-sources", "/v1/group-topic-cooccurrence"]) {
+    for (const path of ["/v1/group-primary-topics", "/v1/group-category-years", "/v1/group-topic-years", "/v1/topic-impact-years", "/v1/topic-actors", "/v1/group-sources", "/v1/group-topic-cooccurrence"]) {
       expect(groupedRequestBodies.some((request) => request.path === path && request.body.subfieldId === "3107"), `${path} should preserve strict scope`).toBe(true);
     }
   });

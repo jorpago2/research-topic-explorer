@@ -62,6 +62,18 @@ export const topicDetailsSchema = z.object({
     domain: hierarchyNodeSchema.nullable(),
   })),
 });
+export const topicImpactSchema = z.object({
+  top10: groupedSchema,
+  top1: groupedSchema,
+});
+export const actorSnapshotSchema = z.object({
+  meta: z.object({
+    documentCount: z.number().int().nonnegative(),
+    costUsd: z.number().nonnegative().optional(),
+  }),
+  groups: z.array(z.object({ id: z.string(), displayName: z.string(), count: z.number().int().nonnegative() })).max(100),
+  truncated: z.boolean(),
+});
 
 const evidenceTopicSchema = z.object({ id: topicIdSchema, displayName: z.string(), score: z.number().min(0).max(1).nullable() });
 export const topicEvidenceSchema = z.object({

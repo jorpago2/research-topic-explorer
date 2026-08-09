@@ -4,7 +4,7 @@ test.beforeEach(async ({ page }) => {
   await page.route("**/health", (route) => route.fulfill({ json: { ok: true, data: { status: "ok", version: "v1" } } }));
   await page.route("**/v1/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
-    if (path.startsWith("/v1/group-") && new URL(page.url()).searchParams.get("scope") === "strict") {
+    if ((path.startsWith("/v1/group-") || path === "/v1/topic-impact-years" || path === "/v1/topic-actors") && new URL(page.url()).searchParams.get("scope") === "strict") {
       expect(route.request().postDataJSON()).toMatchObject({ subfieldId: "3107" });
     }
     let data: unknown;
@@ -20,6 +20,8 @@ test.beforeEach(async ({ page }) => {
     else if (path === "/v1/topic-evidence") data = { selectionMethod: "most-cited-primary-topic-matches", works: [{ id: "W1", title: "Experimental metasurface evidence", doi: "https://doi.org/10.1000/example", publicationYear: 2024, publicationDate: "2024-06-01", citedByCount: 42, source: { id: "S1", displayName: "Optics Express" }, primaryTopic: { id: "T1", displayName: "Metasurfaces", score: 0.92 }, topics: [{ id: "T1", displayName: "Metasurfaces", score: 0.92 }] }] };
     else if (path === "/v1/group-category-years") data = { meta: { documentCount: 300, nextCursor: null }, groups: [2020, 2021, 2022, 2023, 2024].map((year) => ({ id: String(year), displayName: String(year), count: 100 })) };
     else if (path === "/v1/group-topic-years") data = { meta: { documentCount: 100, nextCursor: null }, groups: [2020, 2021, 2022, 2023, 2024].map((year, index) => ({ id: String(year), displayName: String(year), count: 20 + index * 5 })) };
+    else if (path === "/v1/topic-impact-years") data = { top10: { meta: { documentCount: 20, nextCursor: null }, groups: [2020, 2021, 2022, 2023, 2024].map((year) => ({ id: String(year), displayName: String(year), count: 4 })) }, top1: { meta: { documentCount: 5, nextCursor: null }, groups: [2020, 2021, 2022, 2023, 2024].map((year) => ({ id: String(year), displayName: String(year), count: 1 })) } };
+    else if (path === "/v1/topic-actors") { const body = route.request().postDataJSON() as { dimension: "country" | "institution"; startYear: number }; const recent = body.startYear >= 2022; data = { meta: { documentCount: recent ? 50 : 25 }, groups: body.dimension === "country" ? [{ id: "ES", displayName: "ES", count: recent ? 30 : 10 }] : [{ id: "I1", displayName: "Universitat de València", count: recent ? 18 : 5 }], truncated: false }; }
     else if (path === "/v1/group-sources") data = { meta: { documentCount: 100, nextCursor: null }, groups: [{ id: "S1", displayName: "Optics Express", count: 100 }] };
     else if (path === "/v1/group-topic-cooccurrence") data = { meta: { documentCount: 60, nextCursor: null }, groups: [{ id: "T2", displayName: "Integrated photonics", count: 20 }] };
     else throw new Error(`Unhandled mock route ${path}`);
@@ -86,6 +88,10 @@ test("runs the shareable analysis workflow under a project base path", async ({ 
   await page.getByRole("tab", { name: "Trends" }).click();
   await expect(page.getByRole("heading", { name: "Topic trends" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Period comparison" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Topic lifecycle radar" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Normalized citation impact" })).toBeVisible();
+  await page.getByRole("button", { name: "Analyze actors" }).click();
+  await expect(page.getByText("Universitat de València")).toBeVisible();
   await page.getByRole("tab", { name: "Journals" }).click();
   await expect(page.getByText("Optics Express", { exact: true }).last()).toBeVisible();
   await expect(page.locator('td[data-label="JIF"]')).toHaveText("4.8");

@@ -66,6 +66,22 @@ export const categoryYearsRequestSchema = z.object({
   message: `Publication-year range cannot exceed ${MAX_YEAR_RANGE} years.`,
 });
 
+export const topicImpactYearsRequestSchema = topicYearsRequestSchema;
+
+export const topicActorsRequestSchema = z.object({
+  sourceIds,
+  topicId,
+  startYear: publicationYear,
+  endYear: publicationYear,
+  types: documentTypes,
+  subfieldId: subfieldId.optional(),
+  dimension: z.enum(["country", "institution"]),
+}).strict().refine((value) => value.endYear >= value.startYear, {
+  message: "endYear must be greater than or equal to startYear.",
+}).refine((value) => value.endYear - value.startYear + 1 <= MAX_YEAR_RANGE, {
+  message: `Publication-year range cannot exceed ${MAX_YEAR_RANGE} years.`,
+});
+
 export const cooccurrenceRequestSchema = z.object({
   sourceIds,
   seedTopicId: topicId,
@@ -96,3 +112,4 @@ export type TopicYearsRequest = z.infer<typeof topicYearsRequestSchema>;
 export type CategoryYearsRequest = z.infer<typeof categoryYearsRequestSchema>;
 export type CooccurrenceRequest = z.infer<typeof cooccurrenceRequestSchema>;
 export type TopicEvidenceRequest = z.infer<typeof topicEvidenceRequestSchema>;
+export type TopicActorsRequest = z.infer<typeof topicActorsRequestSchema>;

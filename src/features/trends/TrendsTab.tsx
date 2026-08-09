@@ -2,9 +2,9 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Accordion, AccordionItem, Button, Checkbox, Column, Grid, InlineLoading, InlineNotification, RadioButton, RadioButtonGroup, Select, SelectItem, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Tile } from "@carbon/react";
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import type { AnalysisResult } from "../../types/domain";
-import { downloadPeriodComparisonCsv, downloadTrendsCsv } from "../export/download";
-import { buildPeriodComparison, COMPARISON_PERIOD_OPTIONS, DEFAULT_TREND_TOPIC_COUNT, loadTrends, MAX_TREND_TOPICS } from "./service";
+import type { ActorComparisonRow, AnalysisResult, TopicLifecycleStatus } from "../../types/domain";
+import { downloadEmergingActorsCsv, downloadLifecycleCsv, downloadPeriodComparisonCsv, downloadTopicImpactCsv, downloadTrendsCsv } from "../export/download";
+import { buildImpactSummary, buildLifecycleSignals, buildPeriodComparison, COMPARISON_PERIOD_OPTIONS, DEFAULT_TREND_TOPIC_COUNT, loadEmergingActors, loadTopicImpact, loadTrends, MAX_TREND_TOPICS } from "./service";
 
 const chartColors = Array.from({ length: 12 }, (_, index) => `var(--rte-chart-${index + 1})`);
 
@@ -15,6 +15,9 @@ export function TrendsTab({ analysis }: { analysis: AnalysisResult }) {
   const [comparisonYears, setComparisonYears] = useState<2 | 3 | 5>(3);
   const candidates = analysis.ranking.slice(0, MAX_TREND_TOPICS);
   const [selectedIds, setSelectedIds] = useState(() => candidates.slice(0, DEFAULT_TREND_TOPIC_COUNT).map((topic) => topic.topicId));
+  const [impactTopicId, setImpactTopicId] = useState(() => candidates[0]?.topicId ?? "");
+  const [actorTopicId, setActorTopicId] = useState(() => candidates[0]?.topicId ?? "");
+  const [actorRequestKey, setActorRequestKey] = useState<string | null>(null);
   const comparisonStartYear = analysis.year - comparisonYears * 2 + 1;
   const queryStartYear = Math.min(startYear, comparisonStartYear);
   const query = useQuery({
@@ -33,6 +36,23 @@ export function TrendsTab({ analysis }: { analysis: AnalysisResult }) {
   }, [query.data, analysis.year, startYear, metric]);
   const growth = useMemo(() => (query.data ?? []).filter((point) => point.year === analysis.year && point.yoyGrowth !== null).sort((a, b) => (b.yoyGrowth ?? 0) - (a.yoyGrowth ?? 0)), [query.data, analysis.year]);
   const comparison = useMemo(() => query.data ? buildPeriodComparison(query.data, analysis.year, comparisonYears) : null, [query.data, analysis.year, comparisonYears]);
+  const lifecycle = useMemo(() => query.data ? buildLifecycleSignals(query.data, analysis.year, comparisonYears) : [], [query.data, analysis.year, comparisonYears]);
+  const impactQuery = useQuery({
+    queryKey: ["topic-impact", analysis.category.id, analysis.year, analysis.documentTypeMode, analysis.analysisScope, analysis.coverage.uniqueSources.map((source) => source.id), queryStartYear, impactTopicId],
+    queryFn: ({ signal }) => loadTopicImpact(analysis, queryStartYear, analysis.year, impactTopicId, query.data ?? [], signal),
+    enabled: Boolean(query.data && impactTopicId),
+  });
+  const impactSummary = useMemo(() => impactQuery.data ? buildImpactSummary(impactQuery.data, analysis.year, comparisonYears) : null, [impactQuery.data, analysis.year, comparisonYears]);
+  const impactChartData = useMemo(() => (impactQuery.data?.points ?? []).filter((point) => point.year >= startYear).map((point) => ({ year: point.year, top10: point.top10Rate * 100, top1: point.top1Rate * 100 })), [impactQuery.data, startYear]);
+  const actorKey = `${actorTopicId}:${comparisonYears}:${analysis.year}`;
+  const actorQuery = useQuery({
+    queryKey: ["emerging-actors", analysis.category.id, analysis.year, analysis.documentTypeMode, analysis.analysisScope, analysis.coverage.uniqueSources.map((source) => source.id), actorKey],
+    queryFn: ({ signal }) => {
+      if (!comparison) throw new Error("Period comparison data is not ready.");
+      return loadEmergingActors(analysis, actorTopicId, comparison.periodA, comparison.periodB, signal);
+    },
+    enabled: Boolean(comparison && actorTopicId && actorRequestKey === actorKey),
+  });
 
   function toggleTopic(topicId: string) {
     setSelectedIds((current) => current.includes(topicId) ? current.filter((id) => id !== topicId) : current.length < MAX_TREND_TOPICS ? [...current, topicId] : current);
@@ -90,6 +110,27 @@ export function TrendsTab({ analysis }: { analysis: AnalysisResult }) {
           </Tile>
         </Column>
       </Grid>
+      {lifecycle.length && comparison ? (
+        <Grid className="rte-panel-grid">
+          <Column sm={4} md={8} lg={16}>
+            <Tile className="rte-section-tile rte-table-tile">
+              <div className="rte-section-heading">
+                <div><h3 id="lifecycle-heading">Topic lifecycle radar</h3><p>Signals use corpus share, recent slope, and acceleration across the two selected periods. At least 50 recent documents are required.</p></div>
+                <Button kind="secondary" size="md" type="button" onClick={() => downloadLifecycleCsv(analysis, lifecycle, comparison)}>Download lifecycle CSV</Button>
+              </div>
+              <Grid narrow className="rte-signal-grid">
+                {(["emerging", "growing", "mature", "declining"] as const).map((status) => <Column key={status} sm={4} md={2} lg={4}><Tile className="rte-signal-tile"><p>{lifecycleLabel(status)}</p><strong>{lifecycle.filter((row) => row.status === status).length}</strong></Tile></Column>)}
+              </Grid>
+              <div className="rte-table-scroll">
+                <Table useZebraStyles size="lg" aria-label="Topic lifecycle signals" className="rte-lifecycle-table">
+                  <TableHead><TableRow><TableHeader>Topic</TableHeader><TableHeader>Signal</TableHeader><TableHeader>{comparison.periodB.startYear}–{comparison.periodB.endYear}</TableHeader><TableHeader>Share change</TableHeader><TableHeader>Recent slope</TableHeader><TableHeader>Acceleration</TableHeader></TableRow></TableHead>
+                  <TableBody>{lifecycle.map((row) => <TableRow key={row.topicId}><TableCell>{row.topic}</TableCell><TableCell><span className={`rte-signal-label rte-signal-${row.status}`}>{lifecycleLabel(row.status)}</span></TableCell><TableCell>{row.periodBCount.toLocaleString()}</TableCell><TableCell>{formatPercentagePointChange(row.shareChange)}</TableCell><TableCell>{formatSlope(row.recentShareSlope)}</TableCell><TableCell>{formatAcceleration(row.acceleration)}</TableCell></TableRow>)}</TableBody>
+                </Table>
+              </div>
+            </Tile>
+          </Column>
+        </Grid>
+      ) : null}
       {comparison ? (
         <Grid className="rte-panel-grid">
           <Column sm={4} md={8} lg={16}>
@@ -115,6 +156,55 @@ export function TrendsTab({ analysis }: { analysis: AnalysisResult }) {
           </Column>
         </Grid>
       ) : null}
+      <Grid className="rte-panel-grid">
+        <Column sm={4} md={8} lg={16}>
+          <Tile className="rte-section-tile">
+            <div className="rte-section-heading">
+              <div><h3 id="impact-heading">Normalized citation impact</h3><p>Share of matching Topic works flagged by OpenAlex in the citation-normalized top 10% and top 1%.</p></div>
+              {impactQuery.data ? <Button kind="secondary" size="md" type="button" onClick={() => downloadTopicImpactCsv(analysis, impactQuery.data!)}>Download impact CSV</Button> : null}
+            </div>
+            <Grid narrow className="rte-control-grid">
+              <Column sm={4} md={4} lg={6}>
+                <Select id="impact-topic" labelText="Impact Topic" value={impactTopicId} onChange={(event) => setImpactTopicId(event.target.value)} disabled={!candidates.length}>
+                  {candidates.map((topic) => <SelectItem key={topic.topicId} value={topic.topicId} text={topic.name} />)}
+                </Select>
+              </Column>
+              <Column sm={4} md={4} lg={10} className="rte-control-note"><p>Raw citation counts are not compared across publication years.</p></Column>
+            </Grid>
+            {impactQuery.isPending ? <div className="rte-loading-block"><InlineLoading description="Loading normalized impact…" /></div> : impactQuery.isError ? <div className="rte-notification-block"><InlineNotification kind="error" lowContrast hideCloseButton title="Impact data unavailable" subtitle={impactQuery.error.message} /></div> : impactQuery.data && impactSummary ? <>
+              <Grid narrow className="rte-impact-grid">
+                <Column sm={4} md={4} lg={5}><Tile className="rte-signal-tile"><p>Recent top 10%</p><strong>{formatPercent(impactSummary.top10RateB)}</strong><small>{formatPercentagePointChange(impactSummary.top10RateB - impactSummary.top10RateA)} vs prior period</small></Tile></Column>
+                <Column sm={4} md={4} lg={5}><Tile className="rte-signal-tile"><p>Recent top 1%</p><strong>{formatPercent(impactSummary.top1RateB)}</strong><small>{formatPercentagePointChange(impactSummary.top1RateB - impactSummary.top1RateA)} vs prior period</small></Tile></Column>
+                <Column sm={4} md={8} lg={6}><Tile className="rte-signal-tile"><p>Comparison window</p><strong>{impactSummary.periodA.startYear}–{impactSummary.periodB.endYear}</strong><small>Two periods of {comparisonYears} years</small></Tile></Column>
+              </Grid>
+              <div className="rte-trend-chart" aria-label="Normalized citation impact trend chart">
+                <ResponsiveContainer width="100%" height={360}><LineChart data={impactChartData} margin={{ top: 12, right: 24, bottom: 8, left: 4 }}><CartesianGrid vertical={false} /><XAxis dataKey="year" /><YAxis tickFormatter={(value) => `${value}%`} /><Tooltip formatter={(value, name) => [`${Number(value).toFixed(2)}%`, name === "top10" ? "Top 10%" : "Top 1%"]} /><Legend formatter={(value) => value === "top10" ? "Top 10%" : "Top 1%"} /><Line type="monotone" dataKey="top10" stroke={chartColors[0]} strokeWidth={2} dot={{ r: 3 }} isAnimationActive={false} /><Line type="monotone" dataKey="top1" stroke={chartColors[3]} strokeWidth={2} dot={{ r: 3 }} isAnimationActive={false} /></LineChart></ResponsiveContainer>
+              </div>
+            </> : null}
+          </Tile>
+        </Column>
+      </Grid>
+      <Grid className="rte-panel-grid">
+        <Column sm={4} md={8} lg={16}>
+          <Tile className="rte-section-tile rte-table-tile">
+            <div className="rte-section-heading">
+              <div><h3 id="actors-heading">Emerging countries and institutions</h3><p>Largest positive output gains between the same two periods. Multi-country and multi-institution works can contribute to more than one actor.</p></div>
+              {actorQuery.data ? <Button kind="secondary" size="md" type="button" onClick={() => downloadEmergingActorsCsv(analysis, actorQuery.data!)}>Download actors CSV</Button> : null}
+            </div>
+            <Grid narrow className="rte-control-grid">
+              <Column sm={4} md={5} lg={8}><Select id="actor-topic" labelText="Topic for actor analysis" value={actorTopicId} onChange={(event) => { setActorTopicId(event.target.value); setActorRequestKey(null); }} disabled={!candidates.length}>{candidates.map((topic) => <SelectItem key={topic.topicId} value={topic.topicId} text={topic.name} />)}</Select></Column>
+              <Column sm={4} md={3} lg={8} className="rte-form-action"><Button type="button" size="lg" onClick={() => setActorRequestKey(actorKey)} disabled={!comparison || actorQuery.isFetching}>{actorQuery.isFetching ? "Analyzing actors…" : actorQuery.data && actorRequestKey === actorKey ? "Refresh actors" : "Analyze actors"}</Button></Column>
+            </Grid>
+            {actorQuery.isFetching ? <div className="rte-loading-block"><InlineLoading description="Comparing countries and institutions…" /></div> : actorQuery.isError ? <div className="rte-notification-block"><InlineNotification kind="error" lowContrast hideCloseButton title="Actor comparison unavailable" subtitle={actorQuery.error.message} /></div> : actorQuery.data ? <>
+              {actorQuery.data.truncated ? <div className="rte-notification-block"><InlineNotification kind="info" lowContrast hideCloseButton title="Bounded actor comparison" subtitle="Each period uses the top 100 OpenAlex groups; lower-ranked actors are not included." /></div> : null}
+              <Grid narrow className="rte-actor-grid">
+                <Column sm={4} md={8} lg={8}><ActorTable title="Countries with largest gains" rows={actorQuery.data.countries} periodA={`${actorQuery.data.periodA.startYear}–${actorQuery.data.periodA.endYear}`} periodB={`${actorQuery.data.periodB.startYear}–${actorQuery.data.periodB.endYear}`} country /></Column>
+                <Column sm={4} md={8} lg={8}><ActorTable title="Institutions with largest gains" rows={actorQuery.data.institutions} periodA={`${actorQuery.data.periodA.startYear}–${actorQuery.data.periodA.endYear}`} periodB={`${actorQuery.data.periodB.startYear}–${actorQuery.data.periodB.endYear}`} /></Column>
+              </Grid>
+            </> : <div className="rte-network-empty rte-actor-empty"><h4>Run this comparison when you need it</h4><p>The request is kept on demand because institutional grouping is more expensive than the core publication trend.</p></div>}
+          </Tile>
+        </Column>
+      </Grid>
       {growth.length ? (
         <Grid className="rte-panel-grid">
           <Column sm={4} md={8} lg={16}>
@@ -135,6 +225,24 @@ export function TrendsTab({ analysis }: { analysis: AnalysisResult }) {
       ) : null}
     </div>
   );
+}
+
+function ActorTable({ title, rows, periodA, periodB, country = false }: { title: string; rows: ActorComparisonRow[]; periodA: string; periodB: string; country?: boolean }) {
+  return <section aria-label={title} className="rte-actor-section"><h4>{title}</h4>{rows.length ? <div className="rte-table-scroll"><Table useZebraStyles size="md" aria-label={title} className="rte-actor-table"><TableHead><TableRow><TableHeader>{country ? "Country" : "Institution"}</TableHeader><TableHeader>{periodA}</TableHeader><TableHeader>{periodB}</TableHeader><TableHeader>Gain</TableHeader><TableHeader>Growth</TableHeader><TableHeader>Rank Δ</TableHeader></TableRow></TableHead><TableBody>{rows.map((row) => <TableRow key={row.id}><TableCell>{country ? countryName(row.id, row.name) : row.name}</TableCell><TableCell>{row.periodACount.toLocaleString()}</TableCell><TableCell>{row.periodBCount.toLocaleString()}</TableCell><TableCell>+{row.countChange.toLocaleString()}</TableCell><TableCell>{row.relativeChange === null ? "New" : `+${(row.relativeChange * 100).toFixed(1)}%`}</TableCell><TableCell>{row.rankChange === 0 ? "—" : `${row.rankChange > 0 ? "+" : ""}${row.rankChange}`}</TableCell></TableRow>)}</TableBody></Table></div> : <p className="rte-empty-copy">No actors met the minimum recent-output and positive-gain thresholds.</p>}</section>;
+}
+
+function lifecycleLabel(status: TopicLifecycleStatus): string {
+  return ({ emerging: "Emerging", growing: "Growing", mature: "Mature", declining: "Declining", insufficient: "Insufficient data" })[status];
+}
+
+function formatPercent(value: number): string { return `${(value * 100).toFixed(1)}%`; }
+
+function formatSlope(value: number): string { return `${value > 0 ? "+" : ""}${(value * 100).toFixed(3)} pp/year`; }
+
+function formatAcceleration(value: number): string { return `${value > 0 ? "+" : ""}${(value * 100).toFixed(3)} pp/year²`; }
+
+function countryName(code: string, fallback: string): string {
+  try { return new Intl.DisplayNames([navigator.language || "en"], { type: "region" }).of(code) ?? fallback; } catch { return fallback; }
 }
 
 function formatAnnualRateChange(change: number | null, recentAverage: number): string {

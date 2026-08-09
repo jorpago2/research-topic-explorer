@@ -1,4 +1,4 @@
-import type { AnalysisResult, JournalResultRow, NetworkNormalization, PeriodComparisonResult, TrendPoint, VosviewerData } from "../../types/domain";
+import type { AnalysisResult, EmergingActorsResult, JournalResultRow, NetworkNormalization, PeriodComparisonResult, TopicImpactResult, TopicLifecycleSignal, TrendPoint, VosviewerData } from "../../types/domain";
 import { slugifyExportFilename } from "../../lib/analysis";
 
 function csvCell(value: unknown): string {
@@ -97,4 +97,62 @@ export function downloadPeriodComparisonCsv(analysis: AnalysisResult, comparison
     ...scopeColumns(analysis),
   }));
   downloadBlob(serializeCsv(data, Object.keys(data[0] ?? {})), "text/csv;charset=utf-8", `${analysisSlug(analysis)}-period-comparison.csv`);
+}
+
+export function downloadLifecycleCsv(analysis: AnalysisResult, rows: TopicLifecycleSignal[], comparison: PeriodComparisonResult): void {
+  const data = rows.map((row) => ({
+    topic_id: row.topicId,
+    topic: row.topic,
+    lifecycle_signal: row.status,
+    period_a: `${comparison.periodA.startYear}-${comparison.periodA.endYear}`,
+    period_b: `${comparison.periodB.startYear}-${comparison.periodB.endYear}`,
+    period_a_documents: row.periodACount,
+    period_b_documents: row.periodBCount,
+    period_a_share: row.periodAShare,
+    period_b_share: row.periodBShare,
+    share_change: row.shareChange,
+    recent_share_slope_per_year: row.recentShareSlope,
+    share_acceleration: row.acceleration,
+    ...scopeColumns(analysis),
+  }));
+  downloadBlob(serializeCsv(data, Object.keys(data[0] ?? {})), "text/csv;charset=utf-8", `${analysisSlug(analysis)}-topic-lifecycle.csv`);
+}
+
+export function downloadTopicImpactCsv(analysis: AnalysisResult, impact: TopicImpactResult): void {
+  const data = impact.points.map((point) => ({
+    topic_id: impact.topicId,
+    topic: impact.topic,
+    year: point.year,
+    documents: point.documents,
+    top_10_percent_documents: point.top10Documents,
+    top_1_percent_documents: point.top1Documents,
+    top_10_percent_rate: point.top10Rate,
+    top_1_percent_rate: point.top1Rate,
+    ...scopeColumns(analysis),
+  }));
+  downloadBlob(serializeCsv(data, Object.keys(data[0] ?? {})), "text/csv;charset=utf-8", `${analysisSlug(analysis)}-${impact.topicId.toLowerCase()}-normalized-impact.csv`);
+}
+
+export function downloadEmergingActorsCsv(analysis: AnalysisResult, actors: EmergingActorsResult): void {
+  const data = ([
+    ...actors.countries.map((row) => ({ dimension: "country", ...row })),
+    ...actors.institutions.map((row) => ({ dimension: "institution", ...row })),
+  ]).map((row) => ({
+    topic_id: actors.topicId,
+    topic: actors.topic,
+    dimension: row.dimension,
+    actor_id: row.id,
+    actor: row.name,
+    period_a: `${actors.periodA.startYear}-${actors.periodA.endYear}`,
+    period_b: `${actors.periodB.startYear}-${actors.periodB.endYear}`,
+    period_a_documents: row.periodACount,
+    period_b_documents: row.periodBCount,
+    document_gain: row.countChange,
+    relative_change: row.relativeChange ?? "",
+    period_a_rank: row.rankA,
+    period_b_rank: row.rankB,
+    rank_change: row.rankChange,
+    ...scopeColumns(analysis),
+  }));
+  downloadBlob(serializeCsv(data, Object.keys(data[0] ?? {})), "text/csv;charset=utf-8", `${analysisSlug(analysis)}-${actors.topicId.toLowerCase()}-emerging-actors.csv`);
 }

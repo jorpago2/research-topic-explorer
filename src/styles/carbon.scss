@@ -207,8 +207,82 @@ code {
 
 .rte-metric-grid,
 .rte-method-grid,
-.rte-control-grid {
+.rte-control-grid,
+.rte-signal-grid,
+.rte-impact-grid,
+.rte-actor-grid {
   row-gap: spacing.$spacing-05;
+}
+
+.rte-signal-grid,
+.rte-impact-grid,
+.rte-actor-grid {
+  padding: spacing.$spacing-07;
+}
+
+.rte-signal-grid,
+.rte-impact-grid {
+  border-block-end: 1px solid theme.$border-subtle-01;
+}
+
+.rte-signal-tile {
+  min-height: 8rem;
+  border: 1px solid theme.$border-subtle-01;
+}
+
+.rte-signal-tile p,
+.rte-signal-tile small {
+  color: theme.$text-secondary;
+}
+
+.rte-signal-tile strong {
+  display: block;
+  margin-block: spacing.$spacing-04 spacing.$spacing-02;
+  @include type.type-style('heading-04');
+}
+
+.rte-signal-label {
+  font-weight: 600;
+}
+
+.rte-lifecycle-table {
+  min-width: 64rem;
+}
+
+.rte-lifecycle-table th:first-child,
+.rte-lifecycle-table td:first-child {
+  min-width: 16rem;
+}
+
+.rte-loading-block,
+.rte-notification-block {
+  padding: spacing.$spacing-07;
+}
+
+.rte-actor-section {
+  min-width: 0;
+}
+
+.rte-actor-section h4 {
+  margin-block-end: spacing.$spacing-05;
+  @include type.type-style('heading-03');
+}
+
+.rte-actor-table {
+  min-width: 42rem;
+}
+
+.rte-actor-table th:first-child,
+.rte-actor-table td:first-child {
+  min-width: 14rem;
+}
+
+.rte-empty-copy {
+  color: theme.$text-secondary;
+}
+
+.rte-actor-empty {
+  min-height: 14rem;
 }
 
 .rte-metric-tile {

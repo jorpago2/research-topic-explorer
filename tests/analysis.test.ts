@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { buildCoverageReport, buildTopicRanking, calculateShare, calculateYoYGrowth, chunkArray, mergeGroupedCounts, normalizeOpenAlexId, slugifyExportFilename } from "../src/lib/analysis";
 import { deduplicateIssns, normalizeIssn } from "../src/lib/issn";
-import { buildPeriodComparison } from "../src/features/trends/service";
-import type { TrendPoint } from "../src/types/domain";
+import { buildImpactSummary, buildLifecycleSignals, buildPeriodComparison } from "../src/features/trends/service";
+import type { TopicImpactResult, TrendPoint } from "../src/types/domain";
 
 describe("ISSN utilities", () => {
   it("normalizes valid ISSNs and preserves X check digits", () => {
@@ -57,5 +57,21 @@ describe("analysis utilities", () => {
     expect(comparison.periodA).toEqual({ startYear: 2019, endYear: 2021 });
     expect(comparison.periodB).toEqual({ startYear: 2022, endYear: 2024 });
     expect(comparison.rows.find((row) => row.topicId === "T1")).toMatchObject({ periodAAnnualAverage: 12, periodBAnnualAverage: 18, annualRateChange: 0.5, rankA: 2, rankB: 1, rankChange: 1 });
+  });
+  it("classifies lifecycle signals from share change, slope, acceleration, and volume", () => {
+    const points: TrendPoint[] = [
+      ...[2019, 2020, 2021, 2022, 2023, 2024].map((year, index) => ({ topicId: "T1", topic: "Emerging", year, documents: [5, 8, 10, 12, 25, 50][index], categoryDocuments: 1000, share: [5, 8, 10, 12, 25, 50][index] / 1000, yoyGrowth: null })),
+      ...[2019, 2020, 2021, 2022, 2023, 2024].map((year, index) => ({ topicId: "T2", topic: "Declining", year, documents: 100 - index * 10, categoryDocuments: 1000, share: (100 - index * 10) / 1000, yoyGrowth: null })),
+    ];
+    const signals = buildLifecycleSignals(points, 2024, 3);
+    expect(signals.find((row) => row.topicId === "T1")?.status).toBe("emerging");
+    expect(signals.find((row) => row.topicId === "T2")?.status).toBe("declining");
+  });
+  it("summarizes normalized impact over the same adjacent periods", () => {
+    const impact: TopicImpactResult = { topicId: "T1", topic: "One", points: [
+      ...[2019, 2020, 2021].map((year) => ({ year, documents: 100, top10Documents: 10, top1Documents: 1, top10Rate: 0.1, top1Rate: 0.01 })),
+      ...[2022, 2023, 2024].map((year) => ({ year, documents: 100, top10Documents: 20, top1Documents: 3, top10Rate: 0.2, top1Rate: 0.03 })),
+    ] };
+    expect(buildImpactSummary(impact, 2024, 3)).toMatchObject({ top10RateA: 0.1, top10RateB: 0.2, top1RateA: 0.01, top1RateB: 0.03 });
   });
 });

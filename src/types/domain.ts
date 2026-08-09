@@ -139,6 +139,69 @@ export interface TrendPoint {
   yoyGrowth: number | null;
 }
 
+export type TopicLifecycleStatus = "emerging" | "growing" | "mature" | "declining" | "insufficient";
+
+export interface TopicLifecycleSignal {
+  topicId: string;
+  topic: string;
+  status: TopicLifecycleStatus;
+  periodACount: number;
+  periodBCount: number;
+  periodAShare: number;
+  periodBShare: number;
+  shareChange: number;
+  recentShareSlope: number;
+  acceleration: number;
+}
+
+export interface TopicImpactPoint {
+  year: number;
+  documents: number;
+  top10Documents: number;
+  top1Documents: number;
+  top10Rate: number;
+  top1Rate: number;
+}
+
+export interface TopicImpactResult {
+  topicId: string;
+  topic: string;
+  points: TopicImpactPoint[];
+}
+
+export interface TopicImpactSummary {
+  periodA: PeriodRange;
+  periodB: PeriodRange;
+  top10RateA: number;
+  top10RateB: number;
+  top1RateA: number;
+  top1RateB: number;
+}
+
+export type ActorDimension = "country" | "institution";
+
+export interface ActorComparisonRow {
+  id: string;
+  name: string;
+  periodACount: number;
+  periodBCount: number;
+  countChange: number;
+  relativeChange: number | null;
+  rankA: number;
+  rankB: number;
+  rankChange: number;
+}
+
+export interface EmergingActorsResult {
+  topicId: string;
+  topic: string;
+  periodA: PeriodRange;
+  periodB: PeriodRange;
+  countries: ActorComparisonRow[];
+  institutions: ActorComparisonRow[];
+  truncated: boolean;
+}
+
 export interface JournalResultRow {
   sourceId: string;
   journal: string;

@@ -1,5 +1,6 @@
 import type { Env } from "../types/env";
 import {
+  ACTOR_GROUP_LIMIT,
   GROUPS_PER_PAGE,
   OPENALEX_OR_LIMIT,
   SOURCE_DISCOVERY_LIMIT,
@@ -322,6 +323,60 @@ export async function groupWorks(
       ...(typeof response.meta?.cost_usd === "number" ? { costUsd: response.meta.cost_usd } : {}),
     },
     groups,
+  };
+}
+
+export async function groupTopicImpactYears(
+  env: Env,
+  sourceIds: string[],
+  topicId: string,
+  startYear: number,
+  endYear: number,
+  types: string[],
+  subfieldId?: string,
+) {
+  const baseFilters = [`primary_topic.id:${topicId}`];
+  if (subfieldId) baseFilters.push(`primary_topic.subfield.id:${subfieldId}`);
+  const range = `${startYear}-${endYear}` as `${number}-${number}`;
+  const [top10, top1] = await Promise.all([
+    groupWorks(env, sourceIds, range, types, "publication_year", "*", [...baseFilters, "citation_normalized_percentile.is_in_top_10_percent:true"].join(",")),
+    groupWorks(env, sourceIds, range, types, "publication_year", "*", [...baseFilters, "citation_normalized_percentile.is_in_top_1_percent:true"].join(",")),
+  ]);
+  return { top10, top1 };
+}
+
+export async function groupTopicActors(
+  env: Env,
+  sourceIds: string[],
+  topicId: string,
+  startYear: number,
+  endYear: number,
+  types: string[],
+  dimension: "country" | "institution",
+  subfieldId?: string,
+) {
+  const extraFilters = [`primary_topic.id:${topicId}`];
+  if (subfieldId) extraFilters.push(`primary_topic.subfield.id:${subfieldId}`);
+  const groupBy = dimension === "country" ? "authorships.institutions.country_code" : "authorships.institutions.id";
+  const response = await fetchOpenAlexJson<OpenAlexGroupedResponse>(env, "/works", {
+    filter: buildWorksFilter(sourceIds, `${startYear}-${endYear}`, types, extraFilters.join(",")),
+    group_by: groupBy,
+    include_xpac: "false",
+    per_page: String(ACTOR_GROUP_LIMIT),
+  });
+  const groups = (response.group_by ?? []).flatMap((group) => {
+    const rawId = String(group.key);
+    const id = dimension === "country" ? rawId.toUpperCase() : normalizeOpenAlexId(rawId, "I");
+    if (!id || (dimension === "country" && !/^[A-Z]{2}$/.test(id))) return [];
+    return [{ id, displayName: String(group.key_display_name ?? id), count: Math.max(0, Number(group.count) || 0) }];
+  });
+  return {
+    meta: {
+      documentCount: Math.max(0, Number(response.meta?.count) || 0),
+      ...(typeof response.meta?.cost_usd === "number" ? { costUsd: response.meta.cost_usd } : {}),
+    },
+    groups,
+    truncated: groups.length >= ACTOR_GROUP_LIMIT,
   };
 }
 

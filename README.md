@@ -11,7 +11,7 @@ No Clarivate/JCR website is scraped. The repository does not include the supplie
 - Loads the current OpenAlex Subfield catalog and automatically derives an ISSN-bearing journal set from primary-topic work groups.
 - Supports two explicit analysis scopes: **Strict selected subfield** filters the final corpus by `primary_topic.subfield.id`, while **Entire journal set** analyzes every selected-year work from the discovered journals.
 - Ranks OpenAlex primary topics for a publication year using `group_by=primary_topic.id`; each classified work contributes once to the ranking.
-- Shows counts, shares, classification coverage, hierarchy metadata, multi-year trends, year-over-year growth, and a journal breakdown.
+- Shows counts, shares, classification coverage, hierarchy metadata, multi-year trends, lifecycle signals, normalized citation impact, emerging countries and institutions, and a journal breakdown.
 - Shows bounded evidence publications for a Topic and compares selected Topics across adjacent two-, three-, or five-year periods.
 - Builds a bounded topic co-occurrence network with raw, VOS association-strength, cosine, or Jaccard link weighting and renders it with the official `vosviewer-online` React component.
 - Exports topic rankings, trends, and journals as CSV and the network as VOSviewer JSON.
@@ -114,6 +114,9 @@ The UI then shows JIF and quartile in the Journals tab and in a user-initiated l
 - **Topic evidence:** up to eight most-cited matching works are retrieved through a closed endpoint; they must match the Topic as `primary_topic`, Source set, publication year, work types, and analysis scope.
 - **Network normalization:** links first require at least five co-occurring works, then use raw count, association strength `cij/(oi×oj)`, cosine `cij/√(oi×oj)`, or Jaccard `cij/(oi+oj−cij)`.
 - **Period comparison:** selected Topics are aggregated over two adjacent equal-duration periods; the UI reports annual averages, corpus shares, relative change, and rank change within the selection.
+- **Lifecycle radar:** the same periods are classified from share change, recent linear share slope, slope acceleration, and volume. Recent output must contain at least 50 documents; an emerging signal also requires fewer than 50 documents in the prior period, positive share change of at least 0.05 percentage points, positive recent slope, and positive acceleration.
+- **Normalized impact:** one selected Topic is filtered by OpenAlex `citation_normalized_percentile.is_in_top_10_percent` and `is_in_top_1_percent`, then grouped by publication year. Rates use all matching Topic works as the denominator, so records without a positive percentile flag remain outside the numerator.
+- **Emerging actors:** countries and institutions are grouped for both comparison periods and ranked by positive document gain. Counts are participations rather than mutually exclusive documents because one work can contain multiple countries or institutions. Each dimension is bounded to the top 100 OpenAlex groups per period and runs only after explicit user action.
 - **Document types:** the default is OpenAlex `article` plus `review`; choosing all types omits the type filter.
 - **Publication year:** OpenAlex `publication_year`, independently selected from the taxonomy.
 - **XPAC:** every works query explicitly sets `include_xpac=false`.
@@ -135,13 +138,15 @@ POST /v1/topic-details
 POST /v1/topic-evidence
 POST /v1/group-topic-years
 POST /v1/group-category-years
+POST /v1/topic-impact-years
+POST /v1/topic-actors
 POST /v1/group-sources
 POST /v1/group-topic-cooccurrence
 POST /v1/openalex-subfields
 POST /v1/openalex-subfield-sources
 ```
 
-It enforces exact-origin CORS, a 32 KiB request body cap, schema validation, ISSN checksums, `S\d+`/`T\d+` identifiers, reasonable years, a maximum 15-year range, 500 ISSNs, 100 source IDs, and 40 topic IDs. The Cloudflare rate-limit binding defaults to 60 cache-miss requests per 60 seconds per origin/client key; cache hits do not contact OpenAlex and therefore do not consume this allowance. Group paging stops after a short page instead of following OpenAlex's terminal cursor to an empty page. Topic metadata uses a bounded four-request upstream pool; no unbounded user-derived `Promise.all` is used.
+It enforces exact-origin CORS, a 32 KiB request body cap, schema validation, ISSN checksums, `S\d+`/`T\d+` identifiers, reasonable years, a maximum 15-year range, 500 ISSNs, 100 source IDs, 40 topic IDs, and actor dimensions restricted to country or institution. The Cloudflare rate-limit binding defaults to 60 cache-miss requests per 60 seconds per origin/client key; cache hits do not contact OpenAlex and therefore do not consume this allowance. Group paging stops after a short page instead of following OpenAlex's terminal cursor to an empty page. Normalized impact uses exactly two fixed upstream groups; actor snapshots return at most 100 groups without cursor paging; topic metadata uses a bounded four-request upstream pool. No unbounded user-derived `Promise.all` is used.
 
 Sanitized responses are cached with deterministic keys that exclude the API key. Source and topic metadata use 30-day TTLs; historical aggregations use seven days; current-year aggregations use 12 hours. Responses may include `X-App-Cache: HIT|MISS`.
 

@@ -127,6 +127,40 @@ describe("Worker security boundary", () => {
     expect(response.status).toBe(200);
     expect(upstreamUrl).toContain(expectedFilter);
   });
+  it("returns bounded normalized-impact year groups using fixed percentile filters", async () => {
+    const urls: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      urls.push(String(input));
+      return Response.json({ meta: { count: 10, next_cursor: null }, group_by: [{ key: "2024", key_display_name: "2024", count: 2 }] });
+    }));
+    const response = await handleRequest(request("/v1/topic-impact-years", { sourceIds: ["S1"], topicId: "T1", startYear: 2019, endYear: 2024, types: ["article"], subfieldId: "2208" }), env);
+    expect(response.status).toBe(200);
+    expect(urls).toHaveLength(2);
+    expect(urls.some((url) => url.includes("citation_normalized_percentile.is_in_top_10_percent%3Atrue"))).toBe(true);
+    expect(urls.some((url) => url.includes("citation_normalized_percentile.is_in_top_1_percent%3Atrue"))).toBe(true);
+    expect(urls.every((url) => url.includes("primary_topic.id%3AT1") && url.includes("primary_topic.subfield.id%3A2208") && url.includes("include_xpac=false"))).toBe(true);
+    expect(await response.text()).not.toContain("test-secret-never-return");
+  });
+  it.each([
+    ["country", "authorships.institutions.country_code"],
+    ["institution", "authorships.institutions.id"],
+  ])("returns a bounded %s actor snapshot", async (dimension, expectedGroup) => {
+    let upstreamUrl = "";
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      upstreamUrl = String(input);
+      return Response.json({ meta: { count: 20 }, group_by: [{ key: dimension === "country" ? "ES" : "https://openalex.org/I1", key_display_name: dimension === "country" ? "ES" : "University", count: 12 }] });
+    }));
+    const response = await handleRequest(request("/v1/topic-actors", { sourceIds: ["S1"], topicId: "T1", startYear: 2022, endYear: 2024, types: [], dimension, subfieldId: "2208" }), env);
+    expect(response.status).toBe(200);
+    expect(upstreamUrl).toContain(`group_by=${encodeURIComponent(expectedGroup)}`);
+    expect(upstreamUrl).toContain("per_page=100");
+    expect(upstreamUrl).not.toContain("cursor=");
+    expect(await response.json()).toMatchObject({ ok: true, data: { groups: [{ count: 12 }], truncated: false } });
+  });
+  it("rejects unsupported actor dimensions and arbitrary impact controls", async () => {
+    expect((await handleRequest(request("/v1/topic-actors", { sourceIds: ["S1"], topicId: "T1", startYear: 2022, endYear: 2024, types: [], dimension: "author" }), env)).status).toBe(422);
+    expect((await handleRequest(request("/v1/topic-impact-years", { sourceIds: ["S1"], topicId: "T1", startYear: 2022, endYear: 2024, types: [], percentile: "arbitrary" }), env)).status).toBe(422);
+  });
   it("returns the bounded OpenAlex subfield taxonomy", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => Response.json({
       meta: { next_cursor: null },

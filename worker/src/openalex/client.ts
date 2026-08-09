@@ -25,7 +25,7 @@ export async function fetchOpenAlexJson<T>(
   return response.json() as Promise<T>;
 }
 
-export function normalizeOpenAlexId(value: unknown, prefix: "S" | "T"): string | null {
+export function normalizeOpenAlexId(value: unknown, prefix: "S" | "T" | "I"): string | null {
   if (typeof value !== "string") return null;
   const candidate = value.replace(/^https?:\/\/openalex\.org\//i, "").toUpperCase();
   return new RegExp(`^${prefix}\\d+$`).test(candidate) ? candidate : null;

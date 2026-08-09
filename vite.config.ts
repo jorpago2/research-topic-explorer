@@ -3,7 +3,9 @@ import react from "@vitejs/plugin-react";
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "VITE_");
-  const base = env.VITE_BASE_PATH || "/";
+  // GitHub Actions and Playwright provide the Pages base path through the
+  // process environment; loadEnv only reads Vite's .env files.
+  const base = process.env.VITE_BASE_PATH || env.VITE_BASE_PATH || "/";
 
   return {
     base: base.endsWith("/") ? base : `${base}/`,

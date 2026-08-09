@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createCacheKey } from "./cache/key";
 import { CACHE_TTL_SECONDS, MAX_REQUEST_BODY_BYTES } from "./openalex/constants";
 import { OpenAlexUpstreamError } from "./openalex/client";
-import { getTopicDetails, getTopicEvidence, groupWorks, listSubfields, listSubfieldSources, resolveSources } from "./openalex/operations";
+import { getTopicDetails, getTopicEvidence, groupTopicActors, groupTopicImpactYears, groupWorks, listSubfields, listSubfieldSources, resolveSources } from "./openalex/operations";
 import type { AppErrorShape, Env } from "./types/env";
 import {
   categoryYearsRequestSchema,
@@ -11,6 +11,8 @@ import {
   resolveSourcesRequestSchema,
   topicDetailsRequestSchema,
   topicEvidenceRequestSchema,
+  topicImpactYearsRequestSchema,
+  topicActorsRequestSchema,
   topicYearsRequestSchema,
   subfieldsRequestSchema,
   subfieldSourcesRequestSchema,
@@ -25,6 +27,8 @@ const ROUTES = new Set([
   "/v1/group-sources",
   "/v1/group-topic-cooccurrence",
   "/v1/topic-evidence",
+  "/v1/topic-impact-years",
+  "/v1/topic-actors",
   "/v1/openalex-subfields",
   "/v1/openalex-subfield-sources",
 ]);
@@ -126,6 +130,14 @@ async function executeRoute(path: string, body: unknown, env: Env): Promise<{ da
       const normalizedBody = topicYearsRequestSchema.parse(body);
       return { data: await groupWorks(env, normalizedBody.sourceIds, `${normalizedBody.startYear}-${normalizedBody.endYear}`, normalizedBody.types, "publication_year", "*", combineFilters(`primary_topic.id:${normalizedBody.topicId}`, primarySubfieldFilter(normalizedBody.subfieldId))), ttl: aggregationTtl(normalizedBody.endYear), normalizedBody };
     }
+    case "/v1/topic-impact-years": {
+      const normalizedBody = topicImpactYearsRequestSchema.parse(body);
+      return { data: await groupTopicImpactYears(env, normalizedBody.sourceIds, normalizedBody.topicId, normalizedBody.startYear, normalizedBody.endYear, normalizedBody.types, normalizedBody.subfieldId), ttl: aggregationTtl(normalizedBody.endYear), normalizedBody };
+    }
+    case "/v1/topic-actors": {
+      const normalizedBody = topicActorsRequestSchema.parse(body);
+      return { data: await groupTopicActors(env, normalizedBody.sourceIds, normalizedBody.topicId, normalizedBody.startYear, normalizedBody.endYear, normalizedBody.types, normalizedBody.dimension, normalizedBody.subfieldId), ttl: aggregationTtl(normalizedBody.endYear), normalizedBody };
+    }
     case "/v1/group-category-years": {
       const normalizedBody = categoryYearsRequestSchema.parse(body);
       return { data: await groupWorks(env, normalizedBody.sourceIds, `${normalizedBody.startYear}-${normalizedBody.endYear}`, normalizedBody.types, "publication_year", "*", primarySubfieldFilter(normalizedBody.subfieldId)), ttl: aggregationTtl(normalizedBody.endYear), normalizedBody };
@@ -210,6 +222,8 @@ function normalizeForCache(path: string, body: unknown): unknown {
     case "/v1/resolve-sources": return resolveSourcesRequestSchema.parse(body);
     case "/v1/topic-details": return topicDetailsRequestSchema.parse(body);
     case "/v1/topic-evidence": return topicEvidenceRequestSchema.parse(body);
+    case "/v1/topic-impact-years": return topicImpactYearsRequestSchema.parse(body);
+    case "/v1/topic-actors": return topicActorsRequestSchema.parse(body);
     case "/v1/group-topic-years": return topicYearsRequestSchema.parse(body);
     case "/v1/group-category-years": return categoryYearsRequestSchema.parse(body);
     case "/v1/group-topic-cooccurrence": return cooccurrenceRequestSchema.parse(body);
