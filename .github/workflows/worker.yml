@@ -1,0 +1,31 @@
+name: Deploy Cloudflare Worker
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare-worker
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - name: Deploy restricted API Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WORKER_ALLOWED_ORIGINS: ${{ vars.WORKER_ALLOWED_ORIGINS }}
+        run: |
+          test -n "$WORKER_ALLOWED_ORIGINS" || (echo "Repository variable WORKER_ALLOWED_ORIGINS is required" && exit 1)
+          npx wrangler deploy --config worker/wrangler.jsonc --var "ALLOWED_ORIGINS:${WORKER_ALLOWED_ORIGINS}"

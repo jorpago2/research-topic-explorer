@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "sample-optics-workflow",
+  "name": "Sample optics workflow fixture",
+  "taxonomy": "TEST FIXTURE — NOT JCR",
+  "edition": "2024",
+  "sourceNote": "Non-production fixture for automated tests; not an authoritative category.",
+  "journals": [
+    {
+      "name": "Optics Express",
+      "issns": ["1094-4087"]
+    },
+    {
+      "name": "Optics Letters",
+      "issns": ["0146-9592", "1539-4794"]
+    }
+  ]
+}

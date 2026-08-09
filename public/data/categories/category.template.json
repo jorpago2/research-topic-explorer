@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "id": "replace-with-category-id",
+  "name": "Replace with category name",
+  "taxonomy": "JCR",
+  "edition": "2024",
+  "sourceNote": "Category membership supplied by the repository owner.",
+  "journals": []
+}
