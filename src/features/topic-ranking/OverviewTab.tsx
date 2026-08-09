@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button, Column, Grid, InlineNotification, Pagination, Search, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Tile } from "@carbon/react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { AnalysisResult, TopicRankingRow } from "../../types/domain";
@@ -9,12 +9,14 @@ const PAGE_SIZE = 25;
 export function OverviewTab({ analysis, onSelectTopic }: { analysis: AnalysisResult; onSelectTopic: (topic: TopicRankingRow) => void }) {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
+  const isNarrow = useMediaQuery("(max-width: 41.99rem)");
   const filtered = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();
     return query ? analysis.ranking.filter((topic) => topic.name.toLocaleLowerCase().includes(query) || topic.topicId.toLocaleLowerCase().includes(query)) : analysis.ranking;
   }, [analysis.ranking, search]);
   const rows = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
-  const topTopics = analysis.ranking.slice(0, 15);
+  const topTopics = analysis.ranking.slice(0, isNarrow ? 10 : 15);
+  const chartHeight = Math.max(isNarrow ? 520 : 420, topTopics.length * (isNarrow ? 52 : 32));
 
   return (
     <div id="panel-overview" className="rte-tab-panel">
@@ -30,11 +32,11 @@ export function OverviewTab({ analysis, onSelectTopic }: { analysis: AnalysisRes
                   <Button kind="secondary" size="md" type="button" onClick={() => downloadRankingCsv(analysis)}>Download CSV</Button>
                 </div>
                 <div className="rte-topic-chart" aria-hidden="true">
-                  <ResponsiveContainer width="100%" height={Math.max(420, topTopics.length * 32)}>
-                    <BarChart data={topTopics} layout="vertical" margin={{ top: 4, right: 28, bottom: 8, left: 8 }}>
+                  <ResponsiveContainer width="100%" height={chartHeight}>
+                    <BarChart data={topTopics} layout="vertical" margin={{ top: 4, right: isNarrow ? 8 : 28, bottom: 8, left: 0 }}>
                       <CartesianGrid horizontal={false} />
                       <XAxis type="number" axisLine={false} tickLine={false} />
-                      <YAxis dataKey="name" type="category" width={190} axisLine={false} tickLine={false} />
+                      <YAxis dataKey="name" type="category" width={isNarrow ? 128 : 190} axisLine={false} tickLine={false} />
                       <Tooltip formatter={(value) => [Number(value).toLocaleString(), "Documents"]} />
                       <Bar dataKey="count" fill="var(--rte-chart-1)" isAnimationActive={false} onClick={(entry) => {
                         const topic = analysis.ranking.find((item) => item.topicId === (entry as unknown as TopicRankingRow).topicId);
@@ -81,4 +83,18 @@ export function OverviewTab({ analysis, onSelectTopic }: { analysis: AnalysisRes
       )}
     </div>
   );
+}
+
+function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState(() => window.matchMedia(query).matches);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(query);
+    const update = () => setMatches(mediaQuery.matches);
+    update();
+    mediaQuery.addEventListener("change", update);
+    return () => mediaQuery.removeEventListener("change", update);
+  }, [query]);
+
+  return matches;
 }
