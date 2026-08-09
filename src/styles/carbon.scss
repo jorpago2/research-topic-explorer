@@ -1,0 +1,490 @@
+/* Hallmark · pre-emit critique: P5 H5 E4 S5 R5 V5 */
+/* Hallmark · genre: modern-minimal · macrostructure: Workbench · tone: technical · design-system: IBM Carbon · anchor hue: blue */
+@use '@carbon/react' with (
+  $font-path: '@ibm/plex'
+);
+@use '@carbon/react/scss/spacing' as spacing;
+@use '@carbon/react/scss/theme' as theme;
+@use '@carbon/react/scss/type' as type;
+@use '@carbon/react/scss/breakpoint' as breakpoint;
+@use '@carbon/react/scss/colors' as colors;
+
+:root {
+  --rte-chart-1: #{colors.$blue-60};
+  --rte-chart-2: #{colors.$cyan-50};
+  --rte-chart-3: #{colors.$teal-50};
+  --rte-chart-4: #{colors.$green-50};
+  --rte-chart-5: #{colors.$magenta-50};
+  --rte-chart-6: #{colors.$purple-50};
+  --rte-chart-7: #{colors.$red-50};
+  --rte-chart-8: #{colors.$orange-50};
+  --rte-chart-9: #{colors.$yellow-40};
+  --rte-chart-10: #{colors.$blue-80};
+  --rte-chart-11: #{colors.$cyan-70};
+  --rte-chart-12: #{colors.$purple-70};
+}
+
+html {
+  scroll-padding-top: spacing.$spacing-09;
+  overflow-x: clip;
+  background: theme.$background;
+}
+
+body {
+  margin: 0;
+  min-width: 20rem;
+  overflow-x: clip;
+  background: theme.$background;
+  color: theme.$text-primary;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+code {
+  font-family: 'IBM Plex Mono', monospace;
+  overflow-wrap: anywhere;
+}
+
+.rte-content {
+  min-height: calc(100vh - 9rem);
+  padding: 0;
+  background: theme.$background;
+}
+
+.rte-header-actions {
+  display: flex;
+  align-items: center;
+  margin-inline-start: auto;
+}
+
+.rte-api-status {
+  display: none;
+  padding-inline: spacing.$spacing-05;
+  color: theme.$text-on-color;
+  @include type.type-style('label-01');
+}
+
+.rte-analysis {
+  padding-block: spacing.$spacing-10 spacing.$spacing-07;
+}
+
+.rte-hero-grid {
+  margin-block-end: spacing.$spacing-09;
+}
+
+.rte-hero-grid h1 {
+  max-width: 18ch;
+  margin-block-start: spacing.$spacing-03;
+  @include type.type-style('heading-06');
+}
+
+.rte-eyebrow {
+  color: theme.$text-secondary;
+  letter-spacing: 0.08em;
+  @include type.type-style('label-01');
+}
+
+.rte-lead {
+  max-width: 52rem;
+  margin-block-start: spacing.$spacing-05;
+  color: theme.$text-secondary;
+  @include type.type-style('body-02');
+}
+
+.rte-form-grid {
+  row-gap: spacing.$spacing-07;
+  padding-block: spacing.$spacing-07;
+  border-block: 1px solid theme.$border-subtle-01;
+}
+
+.rte-form-action {
+  display: flex;
+  align-items: flex-end;
+}
+
+.rte-form-action > button {
+  width: 100%;
+  max-width: none;
+}
+
+.rte-jif-grid,
+.rte-progress-grid,
+.rte-notice-grid,
+.rte-methodology-note-grid,
+.rte-result-heading-grid,
+.rte-metric-grid,
+.rte-coverage-grid,
+.rte-tabs-grid,
+.rte-panel-grid {
+  row-gap: spacing.$spacing-07;
+  margin-block-end: spacing.$spacing-07;
+}
+
+.rte-jif-tile {
+  display: grid;
+  gap: spacing.$spacing-06;
+}
+
+.rte-jif-copy h2,
+.rte-methodology-note-grid h2,
+.rte-section-title {
+  margin-block: spacing.$spacing-03;
+  @include type.type-style('heading-03');
+}
+
+.rte-jif-copy > p:not(.rte-eyebrow),
+.rte-methodology-note-grid p:last-child,
+.rte-secondary-text,
+.rte-section-heading p,
+.rte-control-note,
+.rte-network-empty p,
+.rte-method-tile p,
+.rte-generated-time {
+  color: theme.$text-secondary;
+}
+
+.rte-jif-actions,
+.rte-button-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: spacing.$spacing-03;
+}
+
+.rte-jif-error {
+  grid-column: 1 / -1;
+}
+
+.rte-results {
+  padding-block-start: spacing.$spacing-10;
+  border-block-start: 1px solid theme.$border-subtle-01;
+}
+
+.rte-result-heading-grid h2 {
+  margin-block-start: spacing.$spacing-04;
+  @include type.type-style('heading-05');
+}
+
+.rte-generated-time {
+  align-self: end;
+  @include type.type-style('label-01');
+}
+
+.rte-generated-time time {
+  display: block;
+  margin-block-start: spacing.$spacing-02;
+  color: theme.$text-primary;
+}
+
+.rte-generated-time,
+.rte-metric-tile,
+.rte-table-scroll {
+  font-variant-numeric: tabular-nums;
+}
+
+.rte-metric-grid,
+.rte-method-grid,
+.rte-control-grid {
+  row-gap: spacing.$spacing-05;
+}
+
+.rte-metric-tile {
+  min-height: 8rem;
+}
+
+.rte-metric-tile p {
+  color: theme.$text-secondary;
+  @include type.type-style('label-01');
+}
+
+.rte-metric-tile strong {
+  display: block;
+  margin-block-start: spacing.$spacing-05;
+  @include type.type-style('heading-05');
+}
+
+.rte-table-scroll {
+  overflow-x: auto;
+}
+
+.rte-tabs-grid {
+  position: sticky;
+  z-index: 2;
+  inset-block-start: 3rem;
+  padding-block-start: spacing.$spacing-05;
+  background: theme.$background;
+}
+
+.rte-tab-panel {
+  min-width: 0;
+}
+
+.rte-carbon-tab-panel {
+  padding: 0;
+}
+
+.rte-section-tile {
+  min-width: 0;
+  padding: 0;
+}
+
+.rte-section-heading {
+  display: flex;
+  flex-direction: column;
+  gap: spacing.$spacing-05;
+  padding: spacing.$spacing-07;
+  border-block-end: 1px solid theme.$border-subtle-01;
+}
+
+.rte-section-heading h3,
+.rte-panel-grid > div > h3 {
+  @include type.type-style('heading-04');
+}
+
+.rte-section-heading p {
+  max-width: 52rem;
+  margin-block-start: spacing.$spacing-03;
+}
+
+.rte-topic-chart,
+.rte-trend-chart {
+  min-width: 0;
+  padding: spacing.$spacing-07;
+}
+
+.recharts-cartesian-grid line,
+.recharts-cartesian-axis line,
+.recharts-cartesian-axis path {
+  stroke: theme.$border-subtle-01;
+}
+
+.recharts-cartesian-axis-tick-value,
+.recharts-legend-item-text {
+  fill: theme.$text-secondary;
+  color: theme.$text-secondary !important;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 0.75rem;
+}
+
+.recharts-default-tooltip {
+  border: 1px solid theme.$border-strong-01 !important;
+  background: theme.$layer-02 !important;
+  color: theme.$text-primary !important;
+}
+
+.rte-topic-search {
+  width: 100%;
+}
+
+.rte-topic-button {
+  min-width: 12rem;
+  max-width: 26rem;
+  justify-content: flex-start;
+  overflow: hidden;
+  white-space: nowrap;
+  text-align: start;
+  text-overflow: ellipsis;
+}
+
+.rte-topic-pagination {
+  border-block-start: 1px solid theme.$border-subtle-01;
+}
+
+.rte-control-grid {
+  padding: spacing.$spacing-07;
+  border-block-end: 1px solid theme.$border-subtle-01;
+}
+
+.rte-control-note {
+  align-self: end;
+  padding-block-end: spacing.$spacing-04;
+}
+
+.rte-checkbox-list {
+  display: grid;
+  gap: spacing.$spacing-04;
+  max-height: 20rem;
+  overflow-y: auto;
+}
+
+.rte-network-empty {
+  min-height: 20rem;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  padding: spacing.$spacing-09;
+  text-align: center;
+}
+
+.rte-network-empty h4 {
+  @include type.type-style('heading-03');
+}
+
+.rte-network-empty p {
+  max-width: 42rem;
+  margin-block-start: spacing.$spacing-04;
+}
+
+.vosviewer-frame {
+  border-block-start: 1px solid theme.$border-subtle-01;
+  background: theme.$layer-01;
+}
+
+.vosviewer-frame > div:not(.rte-mobile-network-note) {
+  width: 100%;
+  min-height: 38rem;
+  height: 70vh;
+}
+
+.rte-mobile-network-note {
+  padding: spacing.$spacing-05;
+  color: theme.$text-secondary;
+  border-block-end: 1px solid theme.$border-subtle-01;
+  @include type.type-style('label-01');
+}
+
+.rte-method-grid {
+  margin-block-end: spacing.$spacing-07;
+}
+
+.rte-method-tile {
+  min-height: 14rem;
+}
+
+.rte-method-tile h4 {
+  margin-block-end: spacing.$spacing-05;
+  @include type.type-style('heading-03');
+}
+
+.rte-method-flow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: spacing.$spacing-04;
+}
+
+.rte-method-flow p {
+  font-weight: 600;
+}
+
+.rte-topic-modal {
+  display: grid;
+  gap: spacing.$spacing-07;
+}
+
+.rte-topic-metrics,
+.rte-topic-hierarchy {
+  display: grid;
+  gap: spacing.$spacing-05;
+  margin: 0;
+}
+
+.rte-topic-metrics {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding-block: spacing.$spacing-05;
+  border-block: 1px solid theme.$border-subtle-01;
+}
+
+.rte-topic-metrics dt,
+.rte-topic-hierarchy dt {
+  color: theme.$text-secondary;
+  @include type.type-style('label-01');
+}
+
+.rte-topic-metrics dd,
+.rte-topic-hierarchy dd {
+  margin: 0;
+}
+
+.rte-topic-metrics dd {
+  margin-block-start: spacing.$spacing-03;
+  @include type.type-style('heading-03');
+}
+
+.rte-topic-hierarchy div {
+  display: grid;
+  grid-template-columns: 6rem minmax(0, 1fr);
+  gap: spacing.$spacing-05;
+}
+
+.rte-keywords {
+  display: flex;
+  flex-wrap: wrap;
+  gap: spacing.$spacing-03;
+}
+
+.rte-footer {
+  padding-block: spacing.$spacing-07;
+  border-block-start: 1px solid theme.$border-subtle-01;
+  background: theme.$layer-01;
+  color: theme.$text-secondary;
+  @include type.type-style('label-01');
+}
+
+.rte-footer-grid {
+  row-gap: spacing.$spacing-04;
+}
+
+.rte-footer-end {
+  text-align: start;
+}
+
+@include breakpoint.breakpoint('md') {
+  .rte-api-status {
+    display: block;
+  }
+
+  .rte-jif-tile {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+
+  .rte-section-heading {
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: space-between;
+  }
+
+  .rte-topic-search {
+    width: 20rem;
+  }
+
+  .rte-footer-end {
+    text-align: end;
+  }
+
+  .rte-mobile-network-note {
+    display: none;
+  }
+}
+
+@media (max-width: 41.99rem) {
+  .rte-repository-action {
+    display: none;
+  }
+
+  .rte-analysis {
+    padding-block-start: spacing.$spacing-08;
+  }
+
+  .rte-hero-grid h1 {
+    @include type.type-style('heading-05');
+  }
+
+  .rte-topic-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .rte-topic-hierarchy div {
+    grid-template-columns: 1fr;
+    gap: spacing.$spacing-02;
+  }
+}

@@ -1,9 +1,10 @@
 [
   {
     "date": "2026-08-09",
+    "scope": "app",
     "macrostructure": "Workbench",
-    "theme": "Cobalt",
+    "theme": "IBM Carbon",
     "enrichment": "none",
-    "brief": "Research Topic Explorer scientific bibliometric dashboard"
+    "brief": "Complete Research Topic Explorer interface migration to Carbon React"
   }
 ]

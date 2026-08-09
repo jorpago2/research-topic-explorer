@@ -18,7 +18,7 @@ No Clarivate/JCR website is scraped. The repository does not include the supplie
 ## Architecture
 
 ```text
-GitHub Pages (React + TypeScript + Vite)
+GitHub Pages (React + TypeScript + Vite + IBM Carbon)
         |
         | validated HTTPS operations only
         v
@@ -33,7 +33,7 @@ There is no login, application database, generic proxy, arbitrary upstream path,
 
 ## Compatibility choices
 
-Versions are locked in `package-lock.json`. `vosviewer-online@1.2.4` declares React 17 or 18 peer support, so this project intentionally uses `react@18.3.1` and `react-dom@18.3.1`, together with `mobx@6.16.1` and `mobx-react-lite@3.4.3`. The visualization package is lazy-loaded only when the Network tab needs it. Source maps are disabled for production builds.
+Versions are locked in `package-lock.json`. The interface uses `@carbon/react@1.113.0`, Carbon Sass tokens and locally bundled IBM Plex fonts; the previous application stylesheet and token file were removed rather than layered beneath Carbon. `vosviewer-online@1.2.4` declares React 17 or 18 peer support, so this project intentionally uses `react@18.3.1` and `react-dom@18.3.1`, together with `mobx@6.16.1` and `mobx-react-lite@3.4.3`. The visualization package is lazy-loaded only when the Network tab needs it. Source maps are disabled for production builds.
 
 The VOSviewer dependency tree currently includes an older `qrcode.react` peer declaration. It produces an installation peer warning with React 18, but the required VOSviewer package itself declares React 18 support and the integration is covered by build, integration, and E2E tests. `dompurify` is overridden to a patched release; `npm audit` reports no known vulnerabilities at the time of this implementation.
 

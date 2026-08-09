@@ -1,5 +1,6 @@
 import type { ErrorInfo, ReactNode } from "react";
 import { Component } from "react";
+import { InlineNotification } from "@carbon/react";
 
 export class VisualizationErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
   state = { failed: false };
@@ -9,7 +10,7 @@ export class VisualizationErrorBoundary extends Component<{ children: ReactNode 
   }
   render() {
     if (this.state.failed) {
-      return <div className="network-fallback" role="alert"><strong>The network visualization could not be initialized.</strong><p>You can still download the generated VOSviewer JSON.</p></div>;
+      return <InlineNotification kind="error" lowContrast hideCloseButton title="Visualization unavailable" subtitle="The generated VOSviewer JSON is still available for download." />;
     }
     return this.props.children;
   }

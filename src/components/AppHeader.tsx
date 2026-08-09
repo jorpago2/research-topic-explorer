@@ -1,4 +1,4 @@
-import { ExternalLink, Network } from "lucide-react";
+import { Button, Header, HeaderName } from "@carbon/react";
 
 interface AppHeaderProps {
   onMethodology: () => void;
@@ -8,23 +8,15 @@ interface AppHeaderProps {
 export function AppHeader({ onMethodology, serviceAvailable }: AppHeaderProps) {
   const repositoryUrl = import.meta.env.VITE_GITHUB_REPOSITORY_URL;
   return (
-    <header className="app-header">
-      <div className="brand-lockup">
-        <span className="brand-mark" aria-hidden="true"><Network size={18} strokeWidth={2} /></span>
-        <div>
-          <p className="brand-name">Research Topic Explorer</p>
-          <p className="brand-subtitle">Open bibliometric analysis with OpenAlex</p>
-        </div>
+    <Header aria-label="Research Topic Explorer">
+      <HeaderName href={import.meta.env.BASE_URL} prefix="OpenAlex">
+        Topic Explorer
+      </HeaderName>
+      <div className="rte-header-actions">
+        <span className="rte-api-status">API {serviceAvailable ? "available" : "status unknown"}</span>
+        <Button kind="ghost" size="sm" type="button" onClick={onMethodology}>Methodology</Button>
+        {repositoryUrl ? <Button className="rte-repository-action" kind="ghost" size="sm" as="a" href={repositoryUrl} target="_blank" rel="noreferrer">Repository</Button> : null}
       </div>
-      <nav className="header-actions" aria-label="Application links">
-        <span className={`service-status ${serviceAvailable ? "available" : "unknown"}`} title={serviceAvailable ? "Research data service available" : "Research data service status unavailable"}><span aria-hidden="true" /> API</span>
-        <button className="text-button" type="button" onClick={onMethodology}>Methodology</button>
-        {repositoryUrl ? (
-          <a className="icon-link" href={repositoryUrl} target="_blank" rel="noreferrer" aria-label="Open project repository">
-            <ExternalLink size={19} aria-hidden="true" />
-          </a>
-        ) : null}
-      </nav>
-    </header>
+    </Header>
   );
 }

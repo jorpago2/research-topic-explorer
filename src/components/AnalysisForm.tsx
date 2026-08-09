@@ -1,6 +1,6 @@
 import type { FormEvent } from "react";
-import type { OpenAlexSubfield } from "../types/domain";
-import type { DocumentTypeMode } from "../types/domain";
+import { Button, Column, Grid, Select, SelectItem } from "@carbon/react";
+import type { DocumentTypeMode, OpenAlexSubfield } from "../types/domain";
 
 interface AnalysisFormProps {
   subfields: OpenAlexSubfield[];
@@ -22,43 +22,51 @@ export function AnalysisForm(props: AnalysisFormProps) {
     props.onAnalyze();
   }
   return (
-    <section className="analysis-shell" aria-labelledby="analysis-heading">
-      <div className="analysis-intro">
-        <h1 id="analysis-heading">Explore an OpenAlex research subfield</h1>
-        <p>Discover its journal set, rank primary topics, trace five-year change, and map topic co-occurrence.</p>
-      </div>
-      <form className="analysis-form" onSubmit={submit}>
-        <label className="field field-category">
-          <span className="field-label">OpenAlex subfield</span>
-          <select value={props.categoryId} onChange={(event) => props.onCategoryChange(event.target.value)} disabled={props.loading || !props.subfields.length}>
-            <option value="">Select a subfield</option>
-            {props.subfields.map((subfield) => (
-              <option key={subfield.id} value={subfield.id}>
-                {subfield.displayName}{subfield.field ? ` · ${subfield.field.displayName}` : ""}
-              </option>
-            ))}
-          </select>
-          <span className="field-helper">OpenAlex taxonomy · {props.subfields.length} subfields available</span>
-        </label>
-        <label className="field">
-          <span className="field-label">Publication year</span>
-          <select value={props.year} onChange={(event) => props.onYearChange(Number(event.target.value))} disabled={props.loading}>
-            {years.map((year) => <option key={year} value={year}>{year}</option>)}
-          </select>
-          <span className="field-helper">Used for publications, not taxonomy</span>
-        </label>
-        <label className="field">
-          <span className="field-label">Document types</span>
-          <select value={props.documentTypeMode} onChange={(event) => props.onDocumentTypeChange(event.target.value as DocumentTypeMode)} disabled={props.loading}>
-            <option value="article-review">Articles + reviews</option>
-            <option value="all">All OpenAlex work types</option>
-          </select>
-          <span className="field-helper">Applied to every result</span>
-        </label>
-        <button className="primary-button analyze-button" type="submit" disabled={props.loading || !props.categoryId || !props.categoryReady} aria-busy={props.loading}>
-          {props.loading ? "Analyzing…" : props.categoryId && !props.categoryReady ? "Loading subfield…" : "Analyze"}
-        </button>
+    <section aria-labelledby="analysis-heading" className="rte-analysis">
+      <Grid className="rte-hero-grid">
+        <Column sm={4} md={8} lg={10}>
+          <p className="rte-eyebrow">OPEN BIBLIOMETRIC ANALYSIS</p>
+          <h1 id="analysis-heading">Explore an OpenAlex research subfield</h1>
+          <p className="rte-lead">Discover its journal set, rank primary topics, trace five-year change, and map topic co-occurrence.</p>
+        </Column>
+      </Grid>
+      <form onSubmit={submit}>
+        <Grid className="rte-form-grid">
+          <Column sm={4} md={8} lg={6}>
+            <Select
+              id="openalex-subfield"
+              labelText="OpenAlex subfield"
+              helperText={`OpenAlex taxonomy · ${props.subfields.length} subfields available`}
+              value={props.categoryId}
+              onChange={(event) => props.onCategoryChange(event.target.value)}
+              disabled={props.loading || !props.subfields.length}
+            >
+              <SelectItem value="" text="Select a subfield" />
+              {props.subfields.map((subfield) => <SelectItem key={subfield.id} value={subfield.id} text={`${subfield.displayName}${subfield.field ? ` · ${subfield.field.displayName}` : ""}`} />)}
+            </Select>
+          </Column>
+          <Column sm={4} md={4} lg={3}>
+            <Select id="publication-year" labelText="Publication year" helperText="Independent of the taxonomy" value={yearToString(props.year)} onChange={(event) => props.onYearChange(Number(event.target.value))} disabled={props.loading}>
+              {years.map((year) => <SelectItem key={year} value={String(year)} text={String(year)} />)}
+            </Select>
+          </Column>
+          <Column sm={4} md={4} lg={4}>
+            <Select id="document-types" labelText="Document types" helperText="Applied to every result" value={props.documentTypeMode} onChange={(event) => props.onDocumentTypeChange(event.target.value as DocumentTypeMode)} disabled={props.loading}>
+              <SelectItem value="article-review" text="Articles + reviews" />
+              <SelectItem value="all" text="All OpenAlex work types" />
+            </Select>
+          </Column>
+          <Column sm={4} md={8} lg={3} className="rte-form-action">
+            <Button type="submit" size="lg" disabled={props.loading || !props.categoryId || !props.categoryReady}>
+              {props.loading ? "Analyzing…" : props.categoryId && !props.categoryReady ? "Loading subfield…" : "Analyze"}
+            </Button>
+          </Column>
+        </Grid>
       </form>
     </section>
   );
+}
+
+function yearToString(year: number): string {
+  return String(year);
 }

@@ -1,21 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { AppHeader } from "./components/AppHeader";
+import { Column, Content, Grid, InlineLoading, InlineNotification, Tile } from "@carbon/react";
 import { AnalysisForm } from "./components/AnalysisForm";
 import { AnalysisProgress } from "./components/AnalysisProgress";
 import { AnalysisSummary } from "./components/AnalysisSummary";
+import { AppHeader } from "./components/AppHeader";
 import { CoveragePanel } from "./components/CoveragePanel";
 import { ErrorNotice } from "./components/ErrorNotice";
 import { Footer } from "./components/Footer";
 import { ResultTabs } from "./components/ResultTabs";
 import { TopicDetailDialog } from "./components/TopicDetailDialog";
-import { JournalsTab } from "./features/journals/JournalsTab";
 import { LocalJifLoader } from "./features/journal-metrics/LocalJifLoader";
 import { parseLocalJifFile } from "./features/journal-metrics/local";
+import { JournalsTab } from "./features/journals/JournalsTab";
 import { MethodologyTab } from "./features/methodology/MethodologyTab";
 import { NetworkTab } from "./features/network/NetworkTab";
-import { analyzeOpenAlexSubfield, applyJifDataset, type AnalysisPhase } from "./features/topic-ranking/service";
 import { OverviewTab } from "./features/topic-ranking/OverviewTab";
+import { analyzeOpenAlexSubfield, applyJifDataset, type AnalysisPhase } from "./features/topic-ranking/service";
 import { TrendsTab } from "./features/trends/TrendsTab";
 import { apiRequest } from "./lib/api/client";
 import { healthSchema, subfieldsSchema } from "./lib/api/schemas";
@@ -39,11 +40,7 @@ export default function App() {
   const controllerRef = useRef<AbortController | null>(null);
 
   const healthQuery = useQuery({ queryKey: ["health"], queryFn: ({ signal }) => apiRequest("/health", healthSchema, undefined, signal), retry: false, staleTime: 60_000 });
-  const subfieldsQuery = useQuery({
-    queryKey: ["openalex-subfields"],
-    queryFn: ({ signal }) => apiRequest("/v1/openalex-subfields", subfieldsSchema, {}, signal),
-    staleTime: 24 * 60 * 60_000,
-  });
+  const subfieldsQuery = useQuery({ queryKey: ["openalex-subfields"], queryFn: ({ signal }) => apiRequest("/v1/openalex-subfields", subfieldsSchema, {}, signal), staleTime: 24 * 60 * 60_000 });
   const selectedSubfield = subfieldsQuery.data?.subfields.find((subfield) => subfield.id === categoryId);
 
   useEffect(() => {
@@ -52,9 +49,7 @@ export default function App() {
       setCategoryId(optics?.id ?? subfieldsQuery.data.subfields[0].id);
     }
   }, [subfieldsQuery.data, categoryId]);
-  useEffect(() => {
-    writeUrlState({ categoryId, year, documentTypeMode, tab, networkNodes });
-  }, [categoryId, year, documentTypeMode, tab, networkNodes]);
+  useEffect(() => { writeUrlState({ categoryId, year, documentTypeMode, tab, networkNodes }); }, [categoryId, year, documentTypeMode, tab, networkNodes]);
   useEffect(() => () => controllerRef.current?.abort(), []);
 
   const analysisMutation = useMutation({
@@ -65,10 +60,7 @@ export default function App() {
       controllerRef.current = controller;
       return analyzeOpenAlexSubfield(selectedSubfield, year, documentTypeMode, jifDataset, setPhase, controller.signal);
     },
-    onSuccess: (result) => {
-      setAnalysis(result);
-      setTab("overview");
-    },
+    onSuccess: (result) => { setAnalysis(result); setTab("overview"); },
   });
 
   function invalidateAnalysis() {
@@ -108,56 +100,40 @@ export default function App() {
   const mutationError = analysisMutation.error instanceof Error && analysisMutation.error.name !== "AbortError" ? analysisMutation.error.message : null;
   return (
     <>
-      <a className="skip-link" href="#main-content">Skip to analysis</a>
       <AppHeader onMethodology={openMethodology} serviceAvailable={healthQuery.isSuccess} />
-      <main id="main-content" className={tab === "network" && analysis ? "app-main network-wide" : "app-main"}>
-        <AnalysisForm
-          subfields={subfieldsQuery.data?.subfields ?? []}
-          categoryId={categoryId}
-          year={year}
-          documentTypeMode={documentTypeMode}
-          loading={analysisMutation.isPending}
-          categoryReady={Boolean(selectedSubfield)}
-          onCategoryChange={changeCategory}
-          onYearChange={changeYear}
-          onDocumentTypeChange={changeTypes}
-          onAnalyze={() => analysisMutation.mutate()}
-        />
-        <LocalJifLoader
-          dataset={jifDataset}
-          fileName={jifFileName}
-          loading={jifLoading}
-          disabled={jifLoading || analysisMutation.isPending}
-          error={jifError}
-          matchedSources={analysis ? analysis.jifBySourceId.size : null}
-          totalSources={analysis ? analysis.coverage.uniqueSources.length : null}
-          onFile={loadLocalJif}
-          onClear={clearLocalJif}
-        />
+      <Content id="main-content" className="rte-content">
+        <AnalysisForm subfields={subfieldsQuery.data?.subfields ?? []} categoryId={categoryId} year={year} documentTypeMode={documentTypeMode} loading={analysisMutation.isPending} categoryReady={Boolean(selectedSubfield)} onCategoryChange={changeCategory} onYearChange={changeYear} onDocumentTypeChange={changeTypes} onAnalyze={() => analysisMutation.mutate()} />
+        <LocalJifLoader dataset={jifDataset} fileName={jifFileName} loading={jifLoading} disabled={jifLoading || analysisMutation.isPending} error={jifError} matchedSources={analysis ? analysis.jifBySourceId.size : null} totalSources={analysis ? analysis.coverage.uniqueSources.length : null} onFile={loadLocalJif} onClear={clearLocalJif} />
 
-        {subfieldsQuery.isPending ? <div className="catalog-loading" role="status">Loading the OpenAlex taxonomy…</div> : null}
-        {subfieldsQuery.isError ? <ErrorNotice message="The OpenAlex subfield catalog could not be loaded or validated." /> : null}
+        {subfieldsQuery.isPending ? <Grid className="rte-notice-grid"><Column sm={4} md={8} lg={16}><Tile><InlineLoading description="Loading the OpenAlex taxonomy…" /></Tile></Column></Grid> : null}
+        {subfieldsQuery.isError ? <Grid className="rte-notice-grid"><Column sm={4} md={8} lg={16}><InlineNotification kind="error" lowContrast hideCloseButton title="Taxonomy unavailable" subtitle="The OpenAlex subfield catalog could not be loaded or validated." /></Column></Grid> : null}
         {analysisMutation.isPending ? <AnalysisProgress phase={phase} /> : null}
         {mutationError ? <ErrorNotice message={mutationError} /> : null}
 
         {analysis ? (
-          <div className="results-workbench" aria-busy={analysisMutation.isPending}>
+          <section className="rte-results" aria-labelledby="result-heading" aria-busy={analysisMutation.isPending}>
             <AnalysisSummary analysis={analysis} />
             <CoveragePanel coverage={analysis.coverage} />
-            <ResultTabs active={tab} onChange={setTab} />
-            {tab === "overview" ? <OverviewTab analysis={analysis} onSelectTopic={setSelectedTopic} /> : null}
-            {tab === "trends" ? <TrendsTab analysis={analysis} /> : null}
-            {tab === "network" ? <NetworkTab key={`${analysis.metadata.generatedAt}-${networkNodes}`} analysis={analysis} nodeCount={networkNodes} onNodeCountChange={setNetworkNodes} /> : null}
-            {tab === "journals" ? <JournalsTab analysis={analysis} /> : null}
-            {tab === "methodology" ? <MethodologyTab analysis={analysis} fallbackMode={documentTypeMode} /> : null}
-          </div>
-        ) : (
-          <section id="methodology-note" className="methodology-note">
-            <strong>Methodology boundary</strong>
-            <p>OpenAlex Subfields define a journal set by grouping articles and reviews on their primary-topic subfield and Source. JIF, when available, is separate Clarivate metadata and does not affect classification or topic ranking.</p>
+            <ResultTabs active={tab} onChange={setTab}>
+              {tab === "overview" ? <OverviewTab analysis={analysis} onSelectTopic={setSelectedTopic} /> : null}
+              {tab === "trends" ? <TrendsTab analysis={analysis} /> : null}
+              {tab === "network" ? <NetworkTab key={`${analysis.metadata.generatedAt}-${networkNodes}`} analysis={analysis} nodeCount={networkNodes} onNodeCountChange={setNetworkNodes} /> : null}
+              {tab === "journals" ? <JournalsTab analysis={analysis} /> : null}
+              {tab === "methodology" ? <MethodologyTab analysis={analysis} fallbackMode={documentTypeMode} /> : null}
+            </ResultTabs>
           </section>
+        ) : (
+          <Grid id="methodology-note" className="rte-methodology-note-grid">
+            <Column sm={4} md={8} lg={12}>
+              <Tile>
+                <p className="rte-eyebrow">METHODOLOGY BOUNDARY</p>
+                <h2>OpenAlex classification, separate JIF metadata</h2>
+                <p>OpenAlex Subfields define the journal set by grouping articles and reviews on their primary-topic subfield and Source. Locally loaded JIF metadata does not affect classification or topic ranking.</p>
+              </Tile>
+            </Column>
+          </Grid>
         )}
-      </main>
+      </Content>
       <TopicDetailDialog topic={selectedTopic} details={selectedTopic ? analysis?.topicDetails.get(selectedTopic.topicId) : undefined} onClose={() => setSelectedTopic(null)} />
       <Footer />
     </>

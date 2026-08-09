@@ -54,11 +54,14 @@ test("runs the shareable analysis workflow under a project base path", async ({ 
   await expect(page.getByRole("button", { name: "Download JSON" })).toBeVisible();
 });
 
-test("keeps the core workflow usable at 320 pixels", async ({ page }) => {
+test("keeps the core workflow usable at supported narrow widths", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 800 });
   await page.goto("?category=3107&year=2024");
   await page.getByRole("button", { name: "Analyze" }).click();
   await expect(page.getByRole("heading", { name: "Optics · 2024" })).toBeVisible();
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
-  expect(overflow).toBe(false);
+  for (const width of [320, 375, 414, 768]) {
+    await page.setViewportSize({ width, height: 800 });
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
+    expect(overflow, `horizontal overflow at ${width}px`).toBe(false);
+  }
 });
