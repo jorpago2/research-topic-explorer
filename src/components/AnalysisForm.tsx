@@ -38,7 +38,7 @@ export function AnalysisForm(props: AnalysisFormProps) {
               </option>
             ))}
           </select>
-          <span className="field-helper">OpenAlex taxonomy · 254 subfields</span>
+          <span className="field-helper">OpenAlex taxonomy · {props.subfields.length} subfields available</span>
         </label>
         <label className="field">
           <span className="field-label">Publication year</span>

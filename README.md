@@ -8,7 +8,7 @@ No Clarivate/JCR website is scraped. The repository does not include the supplie
 
 ## What it does
 
-- Loads all 254 OpenAlex Subfields and automatically derives an ISSN-bearing journal set from primary-topic work groups.
+- Loads the current OpenAlex Subfield catalog and automatically derives an ISSN-bearing journal set from primary-topic work groups.
 - Ranks all OpenAlex primary topics for a publication year using `group_by=primary_topic.id`; each classified work contributes once to the ranking.
 - Shows counts, shares, classification coverage, hierarchy metadata, five-year trends, year-over-year growth, and a journal breakdown.
 - Builds a bounded topic co-occurrence network and renders it with the official `vosviewer-online` React component.
