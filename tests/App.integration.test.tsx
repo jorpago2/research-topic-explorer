@@ -16,12 +16,19 @@ const localJifDataset = {
   journals: [{ journalName: "Optics Express", eissn: "1094-4087", index: "SCIE", citations: 100, jif: 4.8, previousJif: 4.6, quartile: "Q1", edition: "2026", provider: "Clarivate" }],
 };
 
+const subfieldFixtures = [
+  { id: "3107", displayName: "Optics", field: { id: "31", displayName: "Physics and Astronomy" }, domain: { id: "3", displayName: "Physical Sciences" } },
+  { id: "3108", displayName: "Quantum Optics", field: { id: "31", displayName: "Physics and Astronomy" }, domain: { id: "3", displayName: "Physical Sciences" } },
+  { id: "1702", displayName: "Artificial Intelligence", field: { id: "17", displayName: "Computer Science" }, domain: { id: "3", displayName: "Physical Sciences" } },
+  { id: "1102", displayName: "Agronomy", field: { id: "11", displayName: "Agricultural and Biological Sciences" }, domain: { id: "1", displayName: "Life Sciences" } },
+];
+
 beforeEach(() => {
   window.history.replaceState(null, "", "/?category=3107&year=2024&types=article,review&tab=overview&nodes=20");
   vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     if (url.endsWith("/health")) return envelope({ status: "ok", version: "v1" });
-    if (url.endsWith("/v1/openalex-subfields")) return envelope({ subfields: [{ id: "3107", displayName: "Optics", field: { id: "31", displayName: "Physics and Astronomy" }, domain: { id: "3", displayName: "Physical Sciences" } }] });
+    if (url.endsWith("/v1/openalex-subfields")) return envelope({ subfields: subfieldFixtures });
     if (url.endsWith("/v1/openalex-subfield-sources")) return envelope({ sources: [{ id: "S1", displayName: "Optics Express", issnL: "1094-4087", issns: ["1094-4087"], type: "journal", worksCount: 1000 }], nextCursor: null });
     if (url.endsWith("/v1/group-primary-topics")) return envelope({ meta: { documentCount: 100, nextCursor: null }, groups: [{ id: "T1", displayName: "Metasurfaces", count: 60 }, { id: "T2", displayName: "Integrated photonics", count: 40 }] });
     if (url.endsWith("/v1/topic-details")) return envelope({ topics: ["T1", "T2"].map((id, index) => ({ id, displayName: index ? "Integrated photonics" : "Metasurfaces", description: "Fixture topic", keywords: ["optics"], subfield: { id: "sub1", displayName: "Optics" }, field: { id: "field1", displayName: "Physics" }, domain: { id: "domain1", displayName: "Physical Sciences" } })) });
@@ -45,7 +52,29 @@ function renderApp() {
 describe("application workflow", () => {
   it("loads a category, analyzes ranking, and exposes all result views", async () => {
     renderApp();
-    await screen.findByRole("option", { name: /Optics/ });
+    const domainSelect = await screen.findByRole("combobox", { name: "OpenAlex domain" });
+    const fieldSelect = screen.getByRole("combobox", { name: "OpenAlex field" });
+    const subfieldInput = screen.getByRole("combobox", { name: "OpenAlex subfield" });
+    await waitFor(() => {
+      expect(domainSelect).toHaveValue("3");
+      expect(fieldSelect).toHaveValue("31");
+      expect(subfieldInput).toHaveValue("Optics");
+    });
+
+    fireEvent.change(domainSelect, { target: { value: "1" } });
+    await waitFor(() => expect(subfieldInput).toHaveValue("Agronomy"));
+    fireEvent.change(domainSelect, { target: { value: "3" } });
+    await waitFor(() => expect(subfieldInput).toHaveValue("Artificial Intelligence"));
+    fireEvent.change(fieldSelect, { target: { value: "31" } });
+    await waitFor(() => expect(subfieldInput).toHaveValue("Optics"));
+
+    fireEvent.change(subfieldInput, { target: { value: "quantum" } });
+    fireEvent.click(await screen.findByRole("option", { name: "Quantum Optics" }));
+    await waitFor(() => expect(subfieldInput).toHaveValue("Quantum Optics"));
+    fireEvent.change(fieldSelect, { target: { value: "17" } });
+    fireEvent.change(fieldSelect, { target: { value: "31" } });
+    await waitFor(() => expect(subfieldInput).toHaveValue("Optics"));
+
     const analyzeButton = await screen.findByRole("button", { name: "Analyze" });
     await waitFor(() => expect(analyzeButton).toBeEnabled());
     const jifFile = new File([JSON.stringify(localJifDataset)], "jif-2026-local.json", { type: "application/json" });

@@ -5,7 +5,12 @@ test.beforeEach(async ({ page }) => {
   await page.route("**/v1/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
     let data: unknown;
-    if (path === "/v1/openalex-subfields") data = { subfields: [{ id: "3107", displayName: "Optics", field: { id: "31", displayName: "Physics and Astronomy" }, domain: { id: "3", displayName: "Physical Sciences" } }] };
+    if (path === "/v1/openalex-subfields") data = { subfields: [
+      { id: "3107", displayName: "Optics", field: { id: "31", displayName: "Physics and Astronomy" }, domain: { id: "3", displayName: "Physical Sciences" } },
+      { id: "3108", displayName: "Quantum Optics", field: { id: "31", displayName: "Physics and Astronomy" }, domain: { id: "3", displayName: "Physical Sciences" } },
+      { id: "1702", displayName: "Artificial Intelligence", field: { id: "17", displayName: "Computer Science" }, domain: { id: "3", displayName: "Physical Sciences" } },
+      { id: "1102", displayName: "Agronomy", field: { id: "11", displayName: "Agricultural and Biological Sciences" }, domain: { id: "1", displayName: "Life Sciences" } },
+    ] };
     else if (path === "/v1/openalex-subfield-sources") data = { sources: [{ id: "S1", displayName: "Optics Express", issnL: "1094-4087", issns: ["1094-4087"], type: "journal", worksCount: 1000 }], nextCursor: null };
     else if (path === "/v1/group-primary-topics") data = { meta: { documentCount: 100, nextCursor: null }, groups: [{ id: "T1", displayName: "Metasurfaces", count: 60 }, { id: "T2", displayName: "Integrated photonics", count: 40 }] };
     else if (path === "/v1/topic-details") data = { topics: ["T1", "T2"].map((id, index) => ({ id, displayName: index ? "Integrated photonics" : "Metasurfaces", description: "Fixture", keywords: ["optics"], subfield: { id: "sub1", displayName: "Optics" }, field: { id: "field1", displayName: "Physics" }, domain: { id: "domain1", displayName: "Physical Sciences" } })) };
@@ -21,6 +26,24 @@ test.beforeEach(async ({ page }) => {
 test("runs the shareable analysis workflow under a project base path", async ({ page }) => {
   await page.goto("?category=3107&year=2024&types=article,review&tab=overview&nodes=20");
   await expect(page.getByRole("heading", { name: "Explore an OpenAlex research subfield" })).toBeVisible();
+  const domainSelect = page.getByLabel("OpenAlex domain");
+  const fieldSelect = page.getByLabel("OpenAlex field");
+  const subfieldInput = page.getByRole("combobox", { name: "OpenAlex subfield" });
+  await expect(domainSelect).toHaveValue("3");
+  await expect(fieldSelect).toHaveValue("31");
+  await expect(subfieldInput).toHaveValue("Optics");
+  await domainSelect.selectOption("1");
+  await expect(subfieldInput).toHaveValue("Agronomy");
+  await domainSelect.selectOption("3");
+  await expect(subfieldInput).toHaveValue("Artificial Intelligence");
+  await fieldSelect.selectOption("31");
+  await expect(subfieldInput).toHaveValue("Optics");
+  await subfieldInput.fill("quantum");
+  await page.getByRole("option", { name: "Quantum Optics" }).click();
+  await expect(subfieldInput).toHaveValue("Quantum Optics");
+  await fieldSelect.selectOption("17");
+  await fieldSelect.selectOption("31");
+  await expect(subfieldInput).toHaveValue("Optics");
   await page.getByLabel("Choose JIF JSON").setInputFiles({
     name: "jif-2026-local.json",
     mimeType: "application/json",

@@ -99,10 +99,19 @@ code {
   @include type.type-style('body-02');
 }
 
+.rte-taxonomy-grid,
 .rte-form-grid {
   row-gap: spacing.$spacing-07;
+}
+
+.rte-taxonomy-grid {
   padding-block: spacing.$spacing-07;
-  border-block: 1px solid theme.$border-subtle-01;
+  border-block-start: 1px solid theme.$border-subtle-01;
+}
+
+.rte-form-grid {
+  padding-block: 0 spacing.$spacing-07;
+  border-block-end: 1px solid theme.$border-subtle-01;
 }
 
 .rte-form-action {

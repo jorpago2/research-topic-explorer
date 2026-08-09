@@ -27,4 +27,11 @@ Object.defineProperty(globalThis, "matchMedia", {
   }),
 });
 
+if (typeof Element !== "undefined") {
+  Object.defineProperty(Element.prototype, "scrollIntoView", {
+    configurable: true,
+    value: () => {},
+  });
+}
+
 afterEach(() => cleanup());
