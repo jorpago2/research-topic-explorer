@@ -1,60 +1,204 @@
 # Research Topic Explorer
 
-Research Topic Explorer is a public, reproducible bibliometric workbench for ranking, trending, and mapping the OpenAlex Topics represented by an OpenAlex Subfield journal set. The browser application is static and deploys to a GitHub Pages project path; a narrowly scoped Cloudflare Worker adds the owner's OpenAlex API key only to server-to-server requests.
+Explore the research topics, publication trends, citation-normalized impact, journals, countries, institutions, and topic relationships within an OpenAlex research subfield.
 
-> Journal-set membership, publication records, and topic classifications come from OpenAlex. Journal Impact Factor (JIF), when enabled, is separate owner-supplied Clarivate metadata matched by eISSN. JIF does not affect membership or analytical results, which are not official JCR analytics.
+## [Open the live application](https://jorpago2.github.io/research-topic-explorer/)
 
-No Clarivate/JCR website is scraped. The repository does not include the supplied PDF or an extracted JIF table by default.
+No account or installation is required. The application is public and works in a modern desktop or mobile browser.
 
-## What it does
+Prefer a concrete starting point? [Analyze Electrical and Electronic Engineering in 2025](https://jorpago2.github.io/research-topic-explorer/?category=2208&year=2025&scope=strict&types=article%2Creview&tab=overview&nodes=30&normalization=association) using strict scope and the default article-and-review filter.
 
-- Loads the current OpenAlex Subfield catalog and automatically derives an ISSN-bearing journal set from primary-topic work groups.
-- Supports two explicit analysis scopes: **Strict selected subfield** filters the final corpus by `primary_topic.subfield.id`, while **Entire journal set** analyzes every selected-year work from the discovered journals.
-- Ranks OpenAlex primary topics for a publication year using `group_by=primary_topic.id`; each classified work contributes once to the ranking.
-- Shows counts, shares, classification coverage, hierarchy metadata, multi-year trends, lifecycle signals, normalized citation impact, emerging countries and institutions, and a journal breakdown.
-- Shows bounded evidence publications for a Topic and compares selected Topics across adjacent two-, three-, or five-year periods.
-- Builds a bounded topic co-occurrence network with raw, VOS association-strength, cosine, or Jaccard link weighting and renders it with the official `vosviewer-online` React component.
-- Exports topic rankings, trends, and journals as CSV and the network as VOSviewer JSON.
-- Stores shareable analysis controls in query parameters without browser storage.
+> **Methodology boundary:** journal-set membership, publication records, and topic classifications come from OpenAlex. Optional Journal Impact Factor (JIF) metadata is supplied locally by the user and remains separate. Results are not Clarivate Citation Topics, JCR categories, or official JCR analytics.
 
-## Architecture
+## What can I investigate?
+
+Research Topic Explorer can help answer questions such as:
+
+- What primary research topics dominate an OpenAlex Subfield in a selected year?
+- Which topics are gaining or losing share of the publication corpus?
+- Which topics show growing, mature, or declining publication patterns?
+- What proportion of a topic's publications belongs to OpenAlex's citation-normalized top 10% or top 1%?
+- Which countries and institutions increased their output most between two comparable periods?
+- Which topics frequently occur together in the same publications?
+- Which journals define the analyzed set, and how much does each journal contribute?
+
+The default example is **Electrical and Electronic Engineering**, but the selector provides the complete OpenAlex hierarchy of Domains, Fields, and Subfields.
+
+## Quick start
+
+1. [Open the application](https://jorpago2.github.io/research-topic-explorer/).
+2. Select an **OpenAlex Domain**, **Field**, and **Subfield**.
+3. Choose the analysis scope:
+   - **Strict selected subfield** is recommended for a focused analysis. It retains only works whose primary topic belongs to the selected Subfield.
+   - **Entire journal set** includes every matching work published by the discovered journals, so adjacent disciplines may appear.
+4. Select the publication year and document types. The default is **articles and reviews**.
+5. Select **Analyze**.
+6. Explore the result tabs or download the data for further analysis.
+
+The application stores the selected controls in the URL. You can bookmark or share the resulting address without creating an account.
+
+## Guide to the result tabs
+
+| Tab | What it shows | Recommended use |
+| --- | --- | --- |
+| **Overview** | Primary-topic ranking, document counts, corpus shares, classification coverage, Topic hierarchy, and evidence publications | Identify the most represented topics and inspect representative publications |
+| **Trends** | Annual output, equal-period comparisons, lifecycle signals, normalized citation impact, and emerging countries/institutions | Distinguish sustained field changes from a single-year fluctuation |
+| **Network** | Bounded Topic co-occurrence map rendered with VOSviewer Online | Explore clusters and relationships between the leading topics |
+| **Journals** | Analyzed OpenAlex Sources and their publication contribution | Check the operational journal set and understand its coverage |
+| **Methodology** | Scope, filters, counting rules, limits, and reproducibility metadata | Verify exactly what was counted before interpreting or reporting results |
+
+## How to interpret the results
+
+### Journal set and analysis scope
+
+OpenAlex does not provide JCR categories. The application therefore uses an explicit, reproducible operational rule:
+
+1. Select an OpenAlex Subfield.
+2. Find the ISSN-bearing journals with the most OpenAlex articles and reviews whose primary topic belongs to that Subfield.
+3. Retain at most the leading 100 journals.
+4. Use those fixed OpenAlex Source IDs for the completed analysis.
+
+The **100-journal cap** is displayed in the interface. It keeps a public analysis bounded and reproducible, but it means the journal set is not an exhaustive list of every journal that may publish work in the field.
+
+In **Strict selected subfield** mode, every final works query also retains the selected OpenAlex Subfield filter. In **Entire journal set** mode, the application analyzes all matching works from those journals. The latter is intentionally broader and can include topics from neighboring disciplines.
+
+### Primary-topic ranking
+
+The main ranking uses `primary_topic.id`. A work has at most one OpenAlex primary Topic, so each classified publication contributes once to the ranking. Topic share is:
 
 ```text
-GitHub Pages (React + TypeScript + Vite + IBM Carbon)
+Topic primary-publication count / analyzed publication count
+```
+
+The interface also reports classification coverage. OpenAlex Topics are algorithmic classifications and should not be described as "JCR topics."
+
+### Topic lifecycle radar
+
+Lifecycle labels are transparent analytical signals, not predictions:
+
+- **Emerging:** low output in the previous period, increasing corpus share, positive recent slope, and positive acceleration.
+- **Growing:** increasing corpus share and a positive recent slope.
+- **Mature:** substantial activity without a sufficiently strong growing or declining signal.
+- **Declining:** decreasing corpus share and a negative recent slope.
+- **Insufficient evidence:** the recent period contains too few documents or the corpus is incomplete.
+
+The comparison uses two adjacent periods of equal length. A signal requires at least 50 recent documents; the exact thresholds and values are shown in the Methodology tab and CSV export. Treat the labels as screening indicators that require subject-matter interpretation.
+
+### Citation-normalized impact
+
+For one selected Topic, the application shows the percentage of matching works flagged by OpenAlex as belonging to the citation-normalized:
+
+- top 10%;
+- top 1%.
+
+This is not a mean citation count, Journal Impact Factor, or journal ranking. The denominator contains all matching Topic works. Citation data for very recent publications can still evolve, so current-year comparisons should be interpreted cautiously.
+
+### Emerging countries and institutions
+
+The actor comparison ranks positive publication-count gains between the same two periods used by the trend analysis. It is run only when the user selects **Analyze actors** because these groupings are more expensive.
+
+Country and institution counts are **participations**, not mutually exclusive documents. A publication with authors from three countries contributes to all three country groups. Each period is limited to OpenAlex's top 100 groups, so lower-volume actors may be absent.
+
+### Topic network
+
+The network links Topics that occur in the same works. A link therefore represents **co-occurrence**, not citation flow, author collaboration, causal influence, or semantic equivalence.
+
+The application supports raw counts, VOS association strength, cosine, and Jaccard weighting. Links require at least five co-occurring works, the network contains at most 40 nodes and 250 edges, and rendering uses the official `vosviewer-online` React component.
+
+## Export and reproducibility
+
+The application can export:
+
+- primary-topic rankings as CSV;
+- annual trends and period comparisons as CSV;
+- lifecycle signals as CSV;
+- normalized-impact series as CSV;
+- country and institution comparisons as CSV;
+- journal contributions as CSV;
+- the co-occurrence network as VOSviewer-compatible JSON.
+
+Exports carry or derive the selected OpenAlex Subfield, analysis scope, publication year, document types, Source IDs, counting rules, XPAC exclusion, truncation state, optional local JIF edition, and generation timestamp.
+
+OpenAlex records and classifications can change. For research reporting, preserve the exported data, the shared URL, and the generation date rather than relying only on a later rerun.
+
+## Optional private JIF enrichment
+
+The public application does not distribute Clarivate data. If you possess a legitimate, locally prepared JIF JSON file, select **Choose JIF JSON** to enrich the Journals table.
+
+- The file is parsed only in the current browser tab.
+- It is never uploaded to the Worker or OpenAlex.
+- It is not written to local storage, session storage, or IndexedDB.
+- Reloading or closing the tab removes the enrichment.
+- JIF never changes the journal set, Topic ranking, trend analysis, or network.
+
+The repository includes a local extraction workflow for the repository owner's PDF. Private source files and generated JIF tables are ignored by Git and excluded from the public build.
+
+## Important limitations
+
+- Results inherit OpenAlex's publication coverage, source matching, and Topic-classification quality.
+- OpenAlex classifications and citation information may be revised over time.
+- The operational journal set is bounded to 100 Sources and is not an official disciplinary journal list.
+- Strict scope follows the OpenAlex Subfield boundary; it cannot subdivide concepts that OpenAlex combines within one Subfield.
+- Current-year output and citation-normalized impact may be incomplete.
+- Lifecycle labels are descriptive heuristics, not forecasts of future research importance.
+- Country and institution counts can exceed the number of publications because multi-actor works contribute to multiple groups.
+- Co-occurrence links do not demonstrate scientific dependence or citation relationships.
+- The public Worker has conservative rate limits. If a limit is reached, wait briefly before retrying rather than repeatedly submitting the same analysis.
+- There is no cross-session result database. Preserve exports when reproducibility matters.
+
+## Data sources and attribution
+
+Publication, journal, Topic, hierarchy, authorship, institution, country, and citation-normalized data come from [OpenAlex](https://openalex.org/). Network rendering uses [VOSviewer Online](https://app.vosviewer.com/) and its official React package.
+
+This software is released under the MIT License. OpenAlex, Clarivate, VOSviewer, and all third-party packages and datasets retain their own terms and licenses.
+
+---
+
+## For maintainers and contributors
+
+### Architecture
+
+```text
+GitHub Pages: React + TypeScript + Vite + IBM Carbon
         |
-        | validated HTTPS operations only
+        | closed, validated HTTPS operations
         v
-Cloudflare Worker (CORS, validation, rate limit, cache, secret)
+Cloudflare Worker: CORS + validation + rate limit + cache + secret
         |
         | api_key added server-side
         v
 OpenAlex REST API
 ```
 
-There is no login, application database, generic proxy, arbitrary upstream path, arbitrary filter, or browser-to-OpenAlex request. Browser code and Worker code are separated, and browser code cannot import Worker configuration.
+There is no login, application database, generic proxy, arbitrary upstream path, arbitrary filter, or browser-to-OpenAlex request. The OpenAlex key exists only as the Cloudflare secret `OPENALEX_API_KEY`. The production frontend has source maps disabled and cannot import Worker configuration.
 
-## Compatibility choices
+### Locked compatibility choices
 
-Versions are locked in `package-lock.json`. The interface uses `@carbon/react@1.113.0`, Carbon Sass tokens and locally bundled IBM Plex fonts; the previous application stylesheet and token file were removed rather than layered beneath Carbon. `vosviewer-online@1.2.4` declares React 17 or 18 peer support, so this project intentionally uses `react@18.3.1` and `react-dom@18.3.1`, together with `mobx@6.16.1` and `mobx-react-lite@3.4.3`. The visualization package is lazy-loaded only when the Network tab needs it. Source maps are disabled for production builds.
+Dependencies are locked in `package-lock.json`. The main compatibility choices are:
 
-The VOSviewer dependency tree currently includes an older `qrcode.react` peer declaration. It produces an installation peer warning with React 18, but the required VOSviewer package itself declares React 18 support and the integration is covered by build, integration, and E2E tests. `dompurify` is overridden to a patched release; `npm audit` reports no known vulnerabilities at the time of this implementation.
+- `react@18.3.1` and `react-dom@18.3.1`;
+- `@carbon/react@1.113.0` with Carbon Sass tokens and local IBM Plex fonts;
+- `vosviewer-online@1.2.4`, lazy-loaded only for the Network tab;
+- `mobx@6.16.1` and `mobx-react-lite@3.4.3` for VOSviewer compatibility.
 
-## Prerequisites
+The VOSviewer dependency tree includes an older `qrcode.react` peer declaration, which produces a peer warning with React 18. The required VOSviewer package declares React 18 support, and the integration is covered by build, integration, and end-to-end tests. `dompurify` is overridden to a patched version.
 
-- Node.js 20.19 or newer
-- A Cloudflare account with Workers enabled
-- An OpenAlex API key
-- `pdftotext` (Poppler) only when extracting an owner-supplied JIF PDF
+### Local development
 
-## Local setup
+Requirements:
 
-Install locked dependencies:
+- Node.js 20.19 or newer;
+- a Cloudflare account with Workers enabled;
+- an OpenAlex API key;
+- `pdftotext` from Poppler only for local JIF PDF extraction.
+
+Install the locked dependencies:
 
 ```bash
 npm ci
 ```
 
-Copy `.env.example` to `.env` and keep only public values there:
+Copy `.env.example` to `.env` and keep only public frontend values there:
 
 ```dotenv
 VITE_API_BASE_URL=http://localhost:8787
@@ -62,13 +206,13 @@ VITE_BASE_PATH=/
 VITE_GITHUB_REPOSITORY_URL=
 ```
 
-Copy `worker/.dev.vars.example` to `worker/.dev.vars`, then add the real key locally:
+Copy `worker/.dev.vars.example` to `worker/.dev.vars`, then add the development secret:
 
 ```dotenv
 OPENALEX_API_KEY=replace-with-local-secret
 ```
 
-Both files containing local secrets are ignored. Never prefix the OpenAlex key with `VITE_`.
+Never prefix the OpenAlex key with `VITE_`. Secret files are ignored by Git.
 
 Run the Worker and frontend in separate terminals:
 
@@ -79,56 +223,7 @@ npm run dev
 
 The default Worker allowlist accepts exactly `http://localhost:5173`.
 
-## OpenAlex journal classification
-
-The selector uses the OpenAlex hierarchy [`Domain → Field → Subfield → Topic`](https://developers.openalex.org/api-reference/subfields). The Worker filters all OpenAlex articles and reviews by `primary_topic.subfield.id`, requires an ISSN-bearing journal as the primary Source, and groups the matching works by Source. Membership may overlap across Subfields.
-
-The Worker requests a non-paginated group page of 100 Sources, which OpenAlex returns by matching-work count. Cursor paging is deliberately not used because OpenAlex sorts paged groups by key rather than count. The 100-Source limit keeps a complete primary-topic analysis plus a normal network generation within the public Worker's interactive request budget. This produces a reproducible, bounded journal set without manual classification. It is an OpenAlex-derived operational definition, not a JCR category.
-
-The analyzed publication year is independent of this Source-level taxonomy. The selected Source IDs are fixed for topic rankings, trends, journal breakdowns, and network construction in a completed analysis. In the default **Strict selected subfield** scope, every final works query also includes the selected `primary_topic.subfield.id`. The optional **Entire journal set** scope omits that final filter and preserves the broader journal-set interpretation used by older shared URLs.
-
-Shareable URLs record the scope as `scope=strict` or `scope=journals`. Existing URLs without `scope` retain journal-set behavior; new analyses default to strict scope.
-
-The older owner-supplied category ingestion layer remains in `public/data/categories/` for compatibility and validation, but it is no longer used by the main selector.
-
-## Private local JIF enrichment
-
-The local PDF is parsed automatically by eISSN. Extraction writes only to ignored private storage:
-
-```bash
-npm run extract:jif
-```
-
-This generates `data-private/jif-2026-local.json`. The file is not bundled or committed. The parser rejects a suspiciously incomplete extraction and never falls back to fuzzy journal-name matching.
-
-Open the application, select **Choose JIF JSON**, and choose that generated file. The browser validates the complete schema and keeps the parsed data only in the current tab's memory. It does not upload the file, call the Worker with JIF data, or write to local storage, session storage, or IndexedDB. Reloading or closing the tab removes the enrichment.
-
-The UI then shows JIF and quartile in the Journals tab and in a user-initiated local CSV export. Missing JIF remains blank and never excludes a journal. The source/provider and edition stay explicit. The supplied PDF yielded 21,648 unique, checksum-valid eISSN records; rows without a valid eISSN cannot be linked automatically with adequate confidence. The extraction script refuses any output path beneath `public/data/`.
-
-## Methodology
-
-- **Journal-set rule:** the 100 journals with the most OpenAlex articles/reviews whose primary topic belongs to the selected Subfield define the set; membership is not inferred from JIF.
-- **Analysis scope:** strict scope retains only works whose primary topic belongs to the selected Subfield; journal-set scope retains all matching works from the discovered Sources. The selected scope applies consistently to rankings, trends, journal counts, and network queries.
-- **Journal assignment:** works are filtered by `primary_location.source.id`.
-- **Counting rule:** the topic ranking groups on `primary_topic.id`, giving each classified work exactly one primary-topic count.
-- **Topic evidence:** up to eight most-cited matching works are retrieved through a closed endpoint; they must match the Topic as `primary_topic`, Source set, publication year, work types, and analysis scope.
-- **Network normalization:** links first require at least five co-occurring works, then use raw count, association strength `cij/(oi×oj)`, cosine `cij/√(oi×oj)`, or Jaccard `cij/(oi+oj−cij)`.
-- **Period comparison:** selected Topics are aggregated over two adjacent equal-duration periods; the UI reports annual averages, corpus shares, relative change, and rank change within the selection.
-- **Lifecycle radar:** the same periods are classified from share change, recent linear share slope, slope acceleration, and volume. Recent output must contain at least 50 documents; an emerging signal also requires fewer than 50 documents in the prior period, positive share change of at least 0.05 percentage points, positive recent slope, and positive acceleration.
-- **Normalized impact:** one selected Topic is filtered by OpenAlex `citation_normalized_percentile.is_in_top_10_percent` and `is_in_top_1_percent`, then grouped by publication year. Rates use all matching Topic works as the denominator, so records without a positive percentile flag remain outside the numerator.
-- **Emerging actors:** countries and institutions are grouped for both comparison periods and ranked by positive document gain. Counts are participations rather than mutually exclusive documents because one work can contain multiple countries or institutions. Each dimension is bounded to the top 100 OpenAlex groups per period and runs only after explicit user action.
-- **Document types:** the default is OpenAlex `article` plus `review`; choosing all types omits the type filter.
-- **Publication year:** OpenAlex `publication_year`, independently selected from the taxonomy.
-- **XPAC:** every works query explicitly sets `include_xpac=false`.
-- **Trends:** grouped annual counts are used; growth is shown only when the previous-year topic count is at least 20 documents.
-- **Network:** nodes are the top 20, 30, or 40 primary topics. For each seed node, matching works are grouped by all attached `topics.id`; links therefore mean topic co-occurrence within works, not citation or semantic similarity. Edges below strength 5 are removed and at most 250 remain.
-- **JIF:** optional, locally loaded Clarivate metadata is matched after classification by exact eISSN and does not change any result.
-
-All computations use grouped OpenAlex API responses rather than downloading individual work records. Browser aggregation chunks Source IDs in groups of at most 100, follows every cursor page, merges Topic IDs, and limits concurrent requests to two.
-
-## Worker security and limits
-
-The Worker accepts only these application operations:
+### Closed Worker operations
 
 ```text
 GET  /health
@@ -146,46 +241,42 @@ POST /v1/openalex-subfields
 POST /v1/openalex-subfield-sources
 ```
 
-It enforces exact-origin CORS, a 32 KiB request body cap, schema validation, ISSN checksums, `S\d+`/`T\d+` identifiers, reasonable years, a maximum 15-year range, 500 ISSNs, 100 source IDs, 40 topic IDs, and actor dimensions restricted to country or institution. The Cloudflare rate-limit binding defaults to 60 cache-miss requests per 60 seconds per origin/client key; cache hits do not contact OpenAlex and therefore do not consume this allowance. Group paging stops after a short page instead of following OpenAlex's terminal cursor to an empty page. Normalized impact uses exactly two fixed upstream groups; actor snapshots return at most 100 groups without cursor paging; topic metadata uses a bounded four-request upstream pool. No unbounded user-derived `Promise.all` is used.
+The Worker enforces exact-origin CORS, a 32 KiB body limit, Zod validation, ISSN checksums, bounded Source and Topic ID arrays, a maximum 15-year range, fixed actor dimensions, controlled upstream concurrency, deterministic caching, and a Cloudflare rate-limit binding. It never accepts arbitrary URLs, OpenAlex paths, filters, or groupings.
 
-Sanitized responses are cached with deterministic keys that exclude the API key. Source and topic metadata use 30-day TTLs; historical aggregations use seven days; current-year aggregations use 12 hours. Responses may include `X-App-Cache: HIT|MISS`.
+All works queries set `include_xpac=false`. Source arrays are limited to 100 IDs per atomic request; Topic metadata accepts at most 40 IDs; network size is limited to 40 nodes. Historical aggregations use a seven-day TTL, current-year aggregations use 12 hours, and Source/Topic metadata uses 30 days. Cache keys never contain the OpenAlex API key.
 
-The Worker emits no application logs containing request bodies, upstream URLs, client IP addresses, or secrets. Cloudflare platform telemetry may still be configured by the account owner; review account-level settings before production use.
+### Local JIF extraction
 
-## Cloudflare deployment
+With the private PDF available locally:
 
-Create the secret through Wrangler; do not put it in `vars` or GitHub repository configuration:
+```bash
+npm run extract:jif
+```
+
+The script writes `data-private/jif-2026-local.json`, validates eISSN checksums, rejects suspiciously incomplete extraction, and refuses output paths beneath `public/data/`. It does not use fuzzy journal-name matching.
+
+### Cloudflare deployment
+
+Provision the OpenAlex key directly as a Worker secret:
 
 ```bash
 npx wrangler secret put OPENALEX_API_KEY --config worker/wrangler.jsonc
 ```
 
-Set the exact production origin when deploying (a project Pages site has origin `https://USERNAME.github.io`, without the repository path):
+Deploy with the exact production origin. A GitHub Pages project URL has origin `https://USERNAME.github.io`, without the repository path:
 
 ```bash
 npx wrangler deploy --config worker/wrangler.jsonc \
   --var "ALLOWED_ORIGINS:https://USERNAME.github.io,http://localhost:5173"
 ```
 
-Choose a `namespace_id` in `worker/wrangler.jsonc` that is unique within the Cloudflare account if `1001` is already used. The Worker workflow expects these GitHub settings:
+Do not place the OpenAlex key in Wrangler `vars`, GitHub repository variables, frontend environment files, or build arguments.
 
-- Secret `CLOUDFLARE_API_TOKEN` with Worker deployment permission
-- Secret `CLOUDFLARE_ACCOUNT_ID`
-- Repository variable `WORKER_ALLOWED_ORIGINS`, for example `https://USERNAME.github.io`
+### GitHub Pages deployment
 
-The OpenAlex key is provisioned directly in Cloudflare and is not a GitHub secret. Running a Worker deployment does not insert the key into the repository or frontend artifact.
+Set repository variable `VITE_API_BASE_URL` to the deployed Worker origin and select **GitHub Actions** as the Pages source. The workflow derives `VITE_BASE_PATH` from the repository name, so the project works from a non-root Pages path and preserves query parameters on direct reload.
 
-## GitHub Pages deployment
-
-Set repository variable `VITE_API_BASE_URL` to the deployed Worker origin, for example `https://research-topic-explorer-api.example.workers.dev`. Enable GitHub Pages with **GitHub Actions** as its source, then push to `main` or run the Pages workflow manually.
-
-The workflow derives `VITE_BASE_PATH` as `/<repository-name>/`, so assets and direct project-page reloads work at:
-
-```text
-https://USERNAME.github.io/research-topic-explorer/?category=3107&year=2024&types=article,review&tab=overview
-```
-
-## Verification
+### Verification
 
 ```bash
 npm run typecheck
@@ -196,23 +287,8 @@ npm run test:e2e
 npm audit
 ```
 
-`test:security` checks the built frontend and browser source for the Worker secret name, an actual `OPENALEX_API_KEY` environment value if provided to the test process, and direct OpenAlex API usage. Worker tests also verify origin rejection, unsupported routes, validation, rate limiting, sanitized upstream failures, and that the server-to-server API key never appears in responses.
+`test:security` inspects the browser source and production bundle for secret names, direct OpenAlex requests, forbidden browser storage, and private JIF data. Worker tests also cover origin rejection, unsupported routes, validation, rate limiting, fixed filters, bounded operations, sanitized upstream failures, and API-key non-disclosure.
 
-## Reproducibility metadata
+## License
 
-CSV and JSON downloads carry or derive the OpenAlex Subfield ID/name, analysis scope, journal-set rule, truncation flag, analyzed publication year, selected work types, Source IDs, analyzed and classified counts, counting/network rules, XPAC exclusion, optional JIF edition/provider, and generation timestamp. API cache contents are accelerators, not a database of record.
-
-## Known limits
-
-- OpenAlex primary-topic assignments are non-exclusive at journal-set level and can change when OpenAlex updates its records.
-- Strict scope follows the official OpenAlex Subfield boundary exactly; it cannot separate concepts combined in one OpenAlex category, such as atomic and molecular physics with optics.
-- The 100-Source cap favors journals with the most matching primary-topic articles/reviews and is reported in methodology metadata.
-- Clarivate JIF data is never loaded from the public deployment. Users must select a legitimate local dataset, which remains in browser memory for the current tab only.
-- Results inherit OpenAlex coverage and classification quality and can change as OpenAlex updates records.
-- The official VOSviewer bundle is large (about 1.55 MB compressed in the current build), but is split into a lazy chunk and is not loaded for ranking, trends, or journal views.
-- A shared public API key still has budget and abuse risk. The closed routes, aggregation, caching, rate limiting, and conservative UI limits reduce that risk but cannot eliminate non-browser abuse.
-- There is no cross-session result database; reproducibility depends on exported metadata and the state of OpenAlex at generation time.
-
-## Attribution
-
-Publication, source, and topic data come from [OpenAlex](https://openalex.org/). Network rendering uses [VOSviewer Online](https://app.vosviewer.com/) and its official React package. This software is released under the MIT License; third-party packages and data retain their own terms.
+[MIT](LICENSE)
