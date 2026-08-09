@@ -18,7 +18,7 @@ import type {
 export const CLIENT_SOURCE_CHUNK_SIZE = 100;
 export const CLIENT_GROUP_CONCURRENCY = 2;
 export const TOPIC_METADATA_LIMIT = 40;
-export const MAX_DISCOVERED_SOURCES = 200;
+export const MAX_DISCOVERED_SOURCES = 100;
 
 export type AnalysisPhase = "resolving" | "ranking" | "metadata" | "preparing";
 

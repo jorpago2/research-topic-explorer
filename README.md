@@ -82,7 +82,7 @@ The default Worker allowlist accepts exactly `http://localhost:5173`.
 
 The selector uses the OpenAlex hierarchy [`Domain → Field → Subfield → Topic`](https://developers.openalex.org/api-reference/subfields). The Worker filters all OpenAlex articles and reviews by `primary_topic.subfield.id`, requires an ISSN-bearing journal as the primary Source, and groups the matching works by Source. Membership may overlap across Subfields.
 
-The Worker requests the maximum non-paginated group page of 200 Sources, which OpenAlex returns by matching-work count. Cursor paging is deliberately not used because OpenAlex sorts paged groups by key rather than count. This produces a reproducible, bounded journal set without manual classification. It is an OpenAlex-derived operational definition, not a JCR category.
+The Worker requests a non-paginated group page of 100 Sources, which OpenAlex returns by matching-work count. Cursor paging is deliberately not used because OpenAlex sorts paged groups by key rather than count. The 100-Source limit keeps a complete primary-topic analysis plus a normal network generation within the public Worker's interactive request budget. This produces a reproducible, bounded journal set without manual classification. It is an OpenAlex-derived operational definition, not a JCR category.
 
 The analyzed publication year is independent of this Source-level taxonomy. The selected Source IDs are fixed for topic rankings, trends, journal breakdowns, and network construction in a completed analysis.
 
@@ -108,7 +108,7 @@ The UI then shows JIF and quartile in the Journals tab and CSV export. Missing J
 
 ## Methodology
 
-- **Journal-set rule:** the 200 journals with the most OpenAlex articles/reviews whose primary topic belongs to the selected Subfield define the set; membership is not inferred from JIF.
+- **Journal-set rule:** the 100 journals with the most OpenAlex articles/reviews whose primary topic belongs to the selected Subfield define the set; membership is not inferred from JIF.
 - **Journal assignment:** works are filtered by `primary_location.source.id`.
 - **Counting rule:** the topic ranking groups on `primary_topic.id`, giving each classified work exactly one primary-topic count.
 - **Document types:** the default is OpenAlex `article` plus `review`; choosing all types omits the type filter.
@@ -137,7 +137,7 @@ POST /v1/openalex-subfields
 POST /v1/openalex-subfield-sources
 ```
 
-It enforces exact-origin CORS, a 32 KiB request body cap, schema validation, ISSN checksums, `S\d+`/`T\d+` identifiers, reasonable years, a maximum 15-year range, 500 ISSNs, 100 source IDs, and 40 topic IDs. The Cloudflare rate-limit binding defaults to 30 requests per 60 seconds per origin/client key. Topic metadata uses a bounded four-request upstream pool; no unbounded user-derived `Promise.all` is used.
+It enforces exact-origin CORS, a 32 KiB request body cap, schema validation, ISSN checksums, `S\d+`/`T\d+` identifiers, reasonable years, a maximum 15-year range, 500 ISSNs, 100 source IDs, and 40 topic IDs. The Cloudflare rate-limit binding defaults to 60 requests per 60 seconds per origin/client key; this was raised from 30 after a production Optics analysis demonstrated that exhaustive group paging plus an interactive network could legitimately exceed 30. Topic metadata uses a bounded four-request upstream pool; no unbounded user-derived `Promise.all` is used.
 
 Sanitized responses are cached with deterministic keys that exclude the API key. Source and topic metadata use 30-day TTLs; historical aggregations use seven days; current-year aggregations use 12 hours. Responses may include `X-App-Cache: HIT|MISS`.
 
@@ -196,7 +196,7 @@ CSV and JSON downloads carry or derive the OpenAlex Subfield ID/name, journal-se
 ## Known limits
 
 - OpenAlex primary-topic assignments are non-exclusive at journal-set level and can change when OpenAlex updates its records.
-- The 200-Source cap favors journals with the most matching primary-topic articles/reviews and is reported in methodology metadata.
+- The 100-Source cap favors journals with the most matching primary-topic articles/reviews and is reported in methodology metadata.
 - Clarivate JIF data is not published by default; the deployer is responsible for confirming redistribution rights.
 - Results inherit OpenAlex coverage and classification quality and can change as OpenAlex updates records.
 - The official VOSviewer bundle is large (about 1.55 MB compressed in the current build), but is split into a lazy chunk and is not loaded for ranking, trends, or journal views.
