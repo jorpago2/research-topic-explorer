@@ -12,4 +12,7 @@ worker/.dev.vars.*
 !worker/.dev.vars.example
 .wrangler/
 .wrangler-dry-run/
+tmp/
+data-private/
+JCR Journal Impact Factor 2026.pdf
 .DS_Store

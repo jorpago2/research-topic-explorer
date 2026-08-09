@@ -5,20 +5,19 @@ import { AnalysisForm } from "./components/AnalysisForm";
 import { AnalysisProgress } from "./components/AnalysisProgress";
 import { AnalysisSummary } from "./components/AnalysisSummary";
 import { CoveragePanel } from "./components/CoveragePanel";
-import { EmptyCatalog } from "./components/EmptyCatalog";
 import { ErrorNotice } from "./components/ErrorNotice";
 import { Footer } from "./components/Footer";
 import { ResultTabs } from "./components/ResultTabs";
 import { TopicDetailDialog } from "./components/TopicDetailDialog";
-import { fetchCategory, fetchCategoryIndex } from "./features/categories/api";
 import { JournalsTab } from "./features/journals/JournalsTab";
+import { fetchLatestJifDataset } from "./features/journal-metrics/api";
 import { MethodologyTab } from "./features/methodology/MethodologyTab";
 import { NetworkTab } from "./features/network/NetworkTab";
-import { analyzeCategory, type AnalysisPhase } from "./features/topic-ranking/service";
+import { analyzeOpenAlexSubfield, type AnalysisPhase } from "./features/topic-ranking/service";
 import { OverviewTab } from "./features/topic-ranking/OverviewTab";
 import { TrendsTab } from "./features/trends/TrendsTab";
 import { apiRequest } from "./lib/api/client";
-import { healthSchema } from "./lib/api/schemas";
+import { healthSchema, subfieldsSchema } from "./lib/api/schemas";
 import { readUrlState, writeUrlState } from "./lib/url-state";
 import type { AnalysisResult, DocumentTypeMode, ResultsTab, TopicRankingRow } from "./types/domain";
 
@@ -35,20 +34,25 @@ export default function App() {
   const controllerRef = useRef<AbortController | null>(null);
 
   const healthQuery = useQuery({ queryKey: ["health"], queryFn: ({ signal }) => apiRequest("/health", healthSchema, undefined, signal), retry: false, staleTime: 60_000 });
-  const indexQuery = useQuery({ queryKey: ["category-index"], queryFn: ({ signal }) => fetchCategoryIndex(signal), staleTime: 30 * 60_000 });
-  const selectedEntry = indexQuery.data?.categories.find((category) => category.id === categoryId);
-  const categoryQuery = useQuery({
-    queryKey: ["category", selectedEntry?.id, selectedEntry?.file],
-    queryFn: ({ signal }) => fetchCategory(selectedEntry!.file, signal),
-    enabled: Boolean(selectedEntry),
-    staleTime: 30 * 60_000,
+  const subfieldsQuery = useQuery({
+    queryKey: ["openalex-subfields"],
+    queryFn: ({ signal }) => apiRequest("/v1/openalex-subfields", subfieldsSchema, {}, signal),
+    staleTime: 24 * 60 * 60_000,
   });
+  const jifQuery = useQuery({
+    queryKey: ["jif-dataset"],
+    queryFn: ({ signal }) => fetchLatestJifDataset(signal),
+    staleTime: Infinity,
+    enabled: false,
+  });
+  const selectedSubfield = subfieldsQuery.data?.subfields.find((subfield) => subfield.id === categoryId);
 
   useEffect(() => {
-    if (indexQuery.data?.categories.length && !indexQuery.data.categories.some((category) => category.id === categoryId)) {
-      setCategoryId(indexQuery.data.categories[0].id);
+    if (subfieldsQuery.data?.subfields.length && !subfieldsQuery.data.subfields.some((subfield) => subfield.id === categoryId)) {
+      const optics = subfieldsQuery.data.subfields.find((subfield) => subfield.displayName.toLocaleLowerCase() === "optics");
+      setCategoryId(optics?.id ?? subfieldsQuery.data.subfields[0].id);
     }
-  }, [indexQuery.data, categoryId]);
+  }, [subfieldsQuery.data, categoryId]);
   useEffect(() => {
     writeUrlState({ categoryId, year, documentTypeMode, tab, networkNodes });
   }, [categoryId, year, documentTypeMode, tab, networkNodes]);
@@ -56,11 +60,12 @@ export default function App() {
 
   const analysisMutation = useMutation({
     mutationFn: async () => {
-      if (!categoryQuery.data) throw new Error("The selected category has not finished loading.");
+      if (!selectedSubfield) throw new Error("The selected OpenAlex subfield has not finished loading.");
       controllerRef.current?.abort();
       const controller = new AbortController();
       controllerRef.current = controller;
-      return analyzeCategory(categoryQuery.data, year, documentTypeMode, setPhase, controller.signal);
+      const jifDataset = await jifQuery.refetch().then((result) => result.data ?? null).catch(() => null);
+      return analyzeOpenAlexSubfield(selectedSubfield, year, documentTypeMode, jifDataset, setPhase, controller.signal);
     },
     onSuccess: (result) => {
       setAnalysis(result);
@@ -89,20 +94,20 @@ export default function App() {
       <AppHeader onMethodology={openMethodology} serviceAvailable={healthQuery.isSuccess} />
       <main id="main-content" className={tab === "network" && analysis ? "app-main network-wide" : "app-main"}>
         <AnalysisForm
-          categories={indexQuery.data?.categories ?? []}
+          subfields={subfieldsQuery.data?.subfields ?? []}
           categoryId={categoryId}
           year={year}
           documentTypeMode={documentTypeMode}
           loading={analysisMutation.isPending}
-          categoryReady={Boolean(categoryQuery.data)}
+          categoryReady={Boolean(selectedSubfield)}
           onCategoryChange={changeCategory}
           onYearChange={changeYear}
           onDocumentTypeChange={changeTypes}
           onAnalyze={() => analysisMutation.mutate()}
         />
 
-        {indexQuery.isPending ? <div className="catalog-loading" role="status">Loading category catalog…</div> : indexQuery.isError ? <ErrorNotice message="The production category catalog could not be loaded or validated." /> : indexQuery.data.categories.length === 0 ? <EmptyCatalog /> : null}
-        {categoryQuery.isError ? <ErrorNotice message="The selected category file could not be loaded or validated." /> : null}
+        {subfieldsQuery.isPending ? <div className="catalog-loading" role="status">Loading the OpenAlex taxonomy…</div> : null}
+        {subfieldsQuery.isError ? <ErrorNotice message="The OpenAlex subfield catalog could not be loaded or validated." /> : null}
         {analysisMutation.isPending ? <AnalysisProgress phase={phase} /> : null}
         {mutationError ? <ErrorNotice message={mutationError} /> : null}
 
@@ -120,7 +125,7 @@ export default function App() {
         ) : (
           <section id="methodology-note" className="methodology-note">
             <strong>Methodology boundary</strong>
-            <p>Category membership defines the journal set only. Publications and topic classifications come from OpenAlex; results are not Clarivate Citation Topics or official JCR analytics.</p>
+            <p>OpenAlex Subfields define the journal set through each Source’s highest-volume topics. JIF, when available, is separate Clarivate metadata and does not affect classification or topic ranking.</p>
           </section>
         )}
       </main>

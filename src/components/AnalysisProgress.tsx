@@ -2,7 +2,7 @@ import { Check } from "lucide-react";
 import type { AnalysisPhase } from "../features/topic-ranking/service";
 
 const phases: Array<{ id: AnalysisPhase; label: string }> = [
-  { id: "resolving", label: "Resolving journals" },
+  { id: "resolving", label: "Discovering journals" },
   { id: "ranking", label: "Analyzing primary topics" },
   { id: "metadata", label: "Loading topic metadata" },
   { id: "preparing", label: "Preparing results" },

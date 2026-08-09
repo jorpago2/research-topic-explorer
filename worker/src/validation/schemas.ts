@@ -10,6 +10,9 @@ import { normalizeIssn } from "./issn";
 
 const sourceId = z.string().transform((value) => value.trim().toUpperCase()).pipe(z.string().regex(/^S\d+$/));
 const topicId = z.string().transform((value) => value.trim().toUpperCase()).pipe(z.string().regex(/^T\d+$/));
+const subfieldId = z.union([z.string(), z.number().int()])
+  .transform((value) => String(value).trim().replace(/^https?:\/\/openalex\.org\/subfields\//i, ""))
+  .pipe(z.string().regex(/^\d{1,8}$/));
 const currentYear = new Date().getUTCFullYear();
 const publicationYear = z.number().int().min(MIN_PUBLICATION_YEAR).max(currentYear);
 const documentTypes = z.array(z.enum(["article", "review"])).max(2).refine((values) => new Set(values).size === values.length, "Duplicate work types are not allowed.");
@@ -64,6 +67,13 @@ export const cooccurrenceRequestSchema = z.object({
   seedTopicId: topicId,
   year: publicationYear,
   types: documentTypes,
+  cursor: z.string().min(1).max(2048).default("*"),
+}).strict();
+
+export const subfieldsRequestSchema = z.object({}).strict();
+
+export const subfieldSourcesRequestSchema = z.object({
+  subfieldId,
   cursor: z.string().min(1).max(2048).default("*"),
 }).strict();
 

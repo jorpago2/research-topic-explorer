@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createCacheKey } from "./cache/key";
 import { CACHE_TTL_SECONDS, MAX_REQUEST_BODY_BYTES } from "./openalex/constants";
 import { OpenAlexUpstreamError } from "./openalex/client";
-import { getTopicDetails, groupWorks, resolveSources } from "./openalex/operations";
+import { getTopicDetails, groupWorks, listSubfields, listSubfieldSources, resolveSources } from "./openalex/operations";
 import type { AppErrorShape, Env } from "./types/env";
 import {
   categoryYearsRequestSchema,
@@ -11,6 +11,8 @@ import {
   resolveSourcesRequestSchema,
   topicDetailsRequestSchema,
   topicYearsRequestSchema,
+  subfieldsRequestSchema,
+  subfieldSourcesRequestSchema,
 } from "./validation/schemas";
 
 const ROUTES = new Set([
@@ -21,6 +23,8 @@ const ROUTES = new Set([
   "/v1/group-category-years",
   "/v1/group-sources",
   "/v1/group-topic-cooccurrence",
+  "/v1/openalex-subfields",
+  "/v1/openalex-subfield-sources",
 ]);
 
 function allowedOrigins(env: Env): Set<string> {
@@ -77,6 +81,14 @@ async function executeRoute(path: string, body: unknown, env: Env): Promise<{ da
     case "/v1/resolve-sources": {
       const normalizedBody = resolveSourcesRequestSchema.parse(body);
       return { data: await resolveSources(env, normalizedBody.issns), ttl: CACHE_TTL_SECONDS.sourceResolution, normalizedBody };
+    }
+    case "/v1/openalex-subfields": {
+      const normalizedBody = subfieldsRequestSchema.parse(body);
+      return { data: await listSubfields(env), ttl: CACHE_TTL_SECONDS.taxonomy, normalizedBody };
+    }
+    case "/v1/openalex-subfield-sources": {
+      const normalizedBody = subfieldSourcesRequestSchema.parse(body);
+      return { data: await listSubfieldSources(env, normalizedBody.subfieldId, normalizedBody.cursor), ttl: CACHE_TTL_SECONDS.taxonomy, normalizedBody };
     }
     case "/v1/group-primary-topics": {
       const normalizedBody = groupedYearRequestSchema.parse(body);
@@ -166,6 +178,8 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
 
 function normalizeForCache(path: string, body: unknown): unknown {
   switch (path) {
+    case "/v1/openalex-subfields": return subfieldsRequestSchema.parse(body);
+    case "/v1/openalex-subfield-sources": return subfieldSourcesRequestSchema.parse(body);
     case "/v1/resolve-sources": return resolveSourcesRequestSchema.parse(body);
     case "/v1/topic-details": return topicDetailsRequestSchema.parse(body);
     case "/v1/group-topic-years": return topicYearsRequestSchema.parse(body);

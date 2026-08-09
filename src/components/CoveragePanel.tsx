@@ -8,14 +8,14 @@ export function CoveragePanel({ coverage }: { coverage: CoverageReport }) {
       <summary>
         <span className="coverage-summary-icon" aria-hidden="true">{incomplete ? <AlertCircle size={19} /> : <CheckCircle2 size={19} />}</span>
         <span>
-          <strong>Journal matching: {coverage.resolvedJournals} of {coverage.totalJournals}</strong>
-          <small>{incomplete ? `Results exclude ${coverage.unresolvedJournals} unmatched journal(s).` : "All category journals matched to OpenAlex."}</small>
+          <strong>OpenAlex journal set: {coverage.uniqueSources.length} Sources</strong>
+          <small>{incomplete ? `Results exclude ${coverage.unresolvedJournals} unmatched journal(s).` : "Membership is derived directly from OpenAlex Source topics."}</small>
         </span>
         <span className="coverage-rate">{coverage.coveragePercentage.toFixed(1)}%</span>
       </summary>
       <div className="coverage-details">
         <table>
-          <thead><tr><th>Category journal</th><th>Input ISSNs</th><th>OpenAlex Sources</th><th>Status</th></tr></thead>
+          <thead><tr><th>Journal</th><th>ISSNs</th><th>OpenAlex Sources</th><th>Status</th></tr></thead>
           <tbody>
             {coverage.rows.map((row) => (
               <tr key={`${row.journalName}-${row.inputIssns.join("-")}`}>

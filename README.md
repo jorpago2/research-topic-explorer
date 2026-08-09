@@ -1,14 +1,14 @@
 # Research Topic Explorer
 
-Research Topic Explorer is a public, reproducible bibliometric workbench for ranking, trending, and mapping the OpenAlex Topics represented by an owner-supplied journal category. The browser application is static and deploys to a GitHub Pages project path; a narrowly scoped Cloudflare Worker adds the owner's OpenAlex API key only to server-to-server requests.
+Research Topic Explorer is a public, reproducible bibliometric workbench for ranking, trending, and mapping the OpenAlex Topics represented by an OpenAlex Subfield journal set. The browser application is static and deploys to a GitHub Pages project path; a narrowly scoped Cloudflare Worker adds the owner's OpenAlex API key only to server-to-server requests.
 
-> Journal-category membership is supplied by the site's category dataset. Publication records and topic classifications come from OpenAlex. The resulting topic rankings are OpenAlex-based analyses of the selected journal set and are not Clarivate Citation Topics or official JCR analytics.
+> Journal-set membership, publication records, and topic classifications come from OpenAlex. Journal Impact Factor (JIF), when enabled, is separate owner-supplied Clarivate metadata matched by eISSN. JIF does not affect membership or analytical results, which are not official JCR analytics.
 
-No Clarivate/JCR content is scraped or bundled by this repository. The production catalog is deliberately empty until the repository owner supplies a legitimately obtained category file.
+No Clarivate/JCR website is scraped. The repository does not include the supplied PDF or an extracted JIF table by default.
 
 ## What it does
 
-- Resolves normalized, checksum-valid ISSNs to deduplicated OpenAlex Source IDs and reports journal-level coverage, including unresolved inputs.
+- Loads all 254 OpenAlex Subfields and automatically derives an ISSN-bearing journal set from OpenAlex Source topics.
 - Ranks all OpenAlex primary topics for a publication year using `group_by=primary_topic.id`; each classified work contributes once to the ranking.
 - Shows counts, shares, classification coverage, hierarchy metadata, five-year trends, year-over-year growth, and a journal breakdown.
 - Builds a bounded topic co-occurrence network and renders it with the official `vosviewer-online` React component.
@@ -42,7 +42,8 @@ The VOSviewer dependency tree currently includes an older `qrcode.react` peer de
 - Node.js 20.19 or newer
 - A Cloudflare account with Workers enabled
 - An OpenAlex API key
-- A legitimate journal-category dataset that you are permitted to use and, if applicable, redistribute
+- `pdftotext` (Poppler) only when extracting an owner-supplied JIF PDF
+- Permission to redistribute Clarivate JIF values if you intend to publish them with the site
 
 ## Local setup
 
@@ -77,46 +78,45 @@ npm run dev
 
 The default Worker allowlist accepts exactly `http://localhost:5173`.
 
-## Category data
+## OpenAlex journal classification
 
-Category definitions live in `public/data/categories/`. Start from `category.template.json`, create a separate definition file, and add it to `index.json`:
+The selector uses the OpenAlex hierarchy [`Domain → Field → Subfield → Topic`](https://developers.openalex.org/api-reference/subfields). A journal Source belongs to a selected Subfield when at least one of the Source's up to 25 highest-volume Topics belongs to that Subfield. OpenAlex defines this Source [`topics` list using raw publication counts](https://help.openalex.org/hc/en-us/articles/27255333459991-What-is-the-difference-between-topics-and-topic-share-in-OpenAlex-entities). Membership may overlap across Subfields.
 
-```json
-{
-  "schemaVersion": 1,
-  "categories": [
-    {
-      "id": "jcr-2024-optics",
-      "name": "Optics",
-      "taxonomy": "JCR",
-      "edition": "2024",
-      "file": "jcr-2024-optics.json"
-    }
-  ]
-}
-```
+The Worker lists Sources in descending OpenAlex `works_count`, requires `type:journal` and an ISSN, and the browser accepts at most 500 Sources. This produces a reproducible, bounded journal set without manual classification. It is an OpenAlex-derived operational definition, not a JCR category.
 
-The category edition and analyzed publication year are independent. Journal names are preserved for coverage reporting. Multiple ISSNs are normalized and deduplicated; invalid checksums fail validation instead of being silently discarded.
+The analyzed publication year is independent of this Source-level taxonomy. The selected Source IDs are fixed for topic rankings, trends, journal breakdowns, and network construction in a completed analysis.
 
-Validate all indexed production files with:
+The older owner-supplied category ingestion layer remains in `public/data/categories/` for compatibility and validation, but it is no longer used by the main selector.
+
+## Optional JIF enrichment
+
+The local PDF is parsed automatically by eISSN. The safe default writes to ignored private storage:
 
 ```bash
-npm run validate:categories
+npm run extract:jif
 ```
 
-The synthetic fixture in `tests/fixtures/` is for automated tests only and is explicitly not a JCR dataset.
+This generated `data-private/jif-2026.json` is not bundled or committed. The parser rejects a suspiciously incomplete extraction and never falls back to fuzzy journal-name matching.
+
+Only if you have confirmed redistribution rights, create the public compact dataset and update its manifest automatically:
+
+```bash
+npm run extract:jif -- --public --confirm-redistribution-rights
+```
+
+The UI then shows JIF and quartile in the Journals tab and CSV export. Missing JIF remains blank and never excludes a journal. The source/provider and edition stay explicit. The current supplied PDF yielded 21,647 unique eISSN records; rows without an eISSN cannot be linked automatically with adequate confidence.
 
 ## Methodology
 
-- **Category rule:** the owner-supplied category defines only the journal set.
+- **Journal-set rule:** OpenAlex Source `topics` defines membership in the selected OpenAlex Subfield; membership is not inferred from JIF.
 - **Journal assignment:** works are filtered by `primary_location.source.id`.
 - **Counting rule:** the topic ranking groups on `primary_topic.id`, giving each classified work exactly one primary-topic count.
 - **Document types:** the default is OpenAlex `article` plus `review`; choosing all types omits the type filter.
-- **Publication year:** OpenAlex `publication_year`, independently selected from category edition metadata.
+- **Publication year:** OpenAlex `publication_year`, independently selected from the taxonomy.
 - **XPAC:** every works query explicitly sets `include_xpac=false`.
 - **Trends:** grouped annual counts are used; growth is shown only when the previous-year topic count is at least 20 documents.
 - **Network:** nodes are the top 20, 30, or 40 primary topics. For each seed node, matching works are grouped by all attached `topics.id`; links therefore mean topic co-occurrence within works, not citation or semantic similarity. Edges below strength 5 are removed and at most 250 remain.
-- **Coverage:** analyses may proceed with partial source resolution, but unresolved journals remain visible and are excluded from the reported analyzed set.
+- **JIF:** optional Clarivate metadata is matched after classification by exact eISSN and does not change any result.
 
 All computations use grouped OpenAlex API responses rather than downloading individual work records. Browser aggregation chunks Source IDs in groups of at most 100, follows every cursor page, merges Topic IDs, and limits concurrent requests to two.
 
@@ -133,6 +133,8 @@ POST /v1/group-topic-years
 POST /v1/group-category-years
 POST /v1/group-sources
 POST /v1/group-topic-cooccurrence
+POST /v1/openalex-subfields
+POST /v1/openalex-subfield-sources
 ```
 
 It enforces exact-origin CORS, a 32 KiB request body cap, schema validation, ISSN checksums, `S\d+`/`T\d+` identifiers, reasonable years, a maximum 15-year range, 500 ISSNs, 100 source IDs, and 40 topic IDs. The Cloudflare rate-limit binding defaults to 30 requests per 60 seconds per origin/client key. Topic metadata uses a bounded four-request upstream pool; no unbounded user-derived `Promise.all` is used.
@@ -171,7 +173,7 @@ Set repository variable `VITE_API_BASE_URL` to the deployed Worker origin, for e
 The workflow derives `VITE_BASE_PATH` as `/<repository-name>/`, so assets and direct project-page reloads work at:
 
 ```text
-https://USERNAME.github.io/research-topic-explorer/?category=...&year=2024&types=article,review&tab=overview
+https://USERNAME.github.io/research-topic-explorer/?category=3107&year=2024&types=article,review&tab=overview
 ```
 
 ## Verification
@@ -189,11 +191,13 @@ npm audit
 
 ## Reproducibility metadata
 
-CSV and JSON downloads carry or derive the category ID/name/taxonomy/edition, analyzed publication year, selected work types, normalized Source IDs, analyzed and classified counts, counting/network rules, XPAC exclusion, and generation timestamp. API cache contents are accelerators, not a database of record.
+CSV and JSON downloads carry or derive the OpenAlex Subfield ID/name, journal-set rule, truncation flag, analyzed publication year, selected work types, Source IDs, analyzed and classified counts, counting/network rules, XPAC exclusion, optional JIF edition/provider, and generation timestamp. API cache contents are accelerators, not a database of record.
 
 ## Known limits
 
-- No legitimate production category membership is included; that is a licensing input owned by the deployer.
+- Source Topics are an OpenAlex-derived, non-exclusive classification and can change when OpenAlex updates its records.
+- The 500-Source cap favors the largest journals by total OpenAlex works count and is reported in methodology metadata.
+- Clarivate JIF data is not published by default; the deployer is responsible for confirming redistribution rights.
 - Results inherit OpenAlex coverage and classification quality and can change as OpenAlex updates records.
 - The official VOSviewer bundle is large (about 1.55 MB compressed in the current build), but is split into a lazy chunk and is not loaded for ranking, trends, or journal views.
 - A shared public API key still has budget and abuse risk. The closed routes, aggregation, caching, rate limiting, and conservative UI limits reduce that risk but cannot eliminate non-browser abuse.
@@ -202,4 +206,3 @@ CSV and JSON downloads carry or derive the category ID/name/taxonomy/edition, an
 ## Attribution
 
 Publication, source, and topic data come from [OpenAlex](https://openalex.org/). Network rendering uses [VOSviewer Online](https://app.vosviewer.com/) and its official React package. This software is released under the MIT License; third-party packages and data retain their own terms.
-

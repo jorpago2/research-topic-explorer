@@ -11,7 +11,7 @@ export class OpenAlexUpstreamError extends Error {
 
 export async function fetchOpenAlexJson<T>(
   env: Env,
-  path: `/sources` | `/works` | `/topics/${string}`,
+  path: `/sources` | `/works` | `/topics` | `/topics/${string}` | `/subfields`,
   parameters: Record<string, string>,
 ): Promise<T> {
   const url = new URL(path, OPENALEX_BASE_URL);

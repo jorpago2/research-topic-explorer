@@ -16,6 +16,7 @@
     "test:e2e": "playwright test",
     "test:security": "node scripts/check-secret-leaks.mjs",
     "validate:categories": "tsx scripts/validate-category-data.ts",
+    "extract:jif": "tsx scripts/extract-jif-data.ts",
     "deploy:worker": "wrangler deploy --config worker/wrangler.jsonc"
   },
   "dependencies": {

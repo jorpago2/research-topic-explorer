@@ -59,4 +59,32 @@ describe("Worker security boundary", () => {
   it("builds deterministic cache material", () => {
     expect(stableStringify({ b: [2, 1], a: "x" })).toBe(stableStringify({ a: "x", b: [2, 1] }));
   });
+  it("returns the bounded OpenAlex subfield taxonomy", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({
+      meta: { next_cursor: null },
+      results: [{ id: "https://openalex.org/subfields/3107", display_name: "Optics", field: { id: "https://openalex.org/fields/31", display_name: "Physics and Astronomy" }, domain: { id: "https://openalex.org/domains/3", display_name: "Physical Sciences" } }],
+    })));
+    const response = await handleRequest(request("/v1/openalex-subfields", {}), env);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ ok: true, data: { subfields: [{ id: "3107", displayName: "Optics" }] } });
+  });
+  it("discovers only ISSN-bearing journal Sources from a validated subfield", async () => {
+    const urls: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      urls.push(url);
+      if (url.includes("/topics?")) return Response.json({ meta: { next_cursor: null }, results: [{ id: "https://openalex.org/T1" }] });
+      return Response.json({ meta: { next_cursor: null }, results: [{ id: "https://openalex.org/S1", display_name: "Optics Express", issn_l: "1094-4087", issn: ["1094-4087"], type: "journal", works_count: 1000 }] });
+    }));
+    const response = await handleRequest(request("/v1/openalex-subfield-sources", { subfieldId: "3107", cursor: "*" }), env);
+    expect(response.status).toBe(200);
+    expect(urls[0]).toContain("filter=subfield.id%3A3107");
+    expect(urls[1]).toContain("type%3Ajournal");
+    expect(urls[1]).toContain("has_issn%3Atrue");
+    expect(await response.text()).not.toContain("test-secret-never-return");
+  });
+  it("rejects arbitrary OpenAlex taxonomy input", async () => {
+    const response = await handleRequest(request("/v1/openalex-subfield-sources", { subfieldId: "3107|malicious", cursor: "*" }), env);
+    expect(response.status).toBe(422);
+  });
 });

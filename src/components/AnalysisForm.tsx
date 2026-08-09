@@ -1,9 +1,9 @@
 import type { FormEvent } from "react";
-import type { CategoryIndexEntry } from "../types/domain";
+import type { OpenAlexSubfield } from "../types/domain";
 import type { DocumentTypeMode } from "../types/domain";
 
 interface AnalysisFormProps {
-  categories: CategoryIndexEntry[];
+  subfields: OpenAlexSubfield[];
   categoryId: string;
   year: number;
   documentTypeMode: DocumentTypeMode;
@@ -24,28 +24,28 @@ export function AnalysisForm(props: AnalysisFormProps) {
   return (
     <section className="analysis-shell" aria-labelledby="analysis-heading">
       <div className="analysis-intro">
-        <h1 id="analysis-heading">Analyze a journal category</h1>
-        <p>Rank OpenAlex primary topics, trace five-year change, and map topic co-occurrence for a reproducible journal set.</p>
+        <h1 id="analysis-heading">Explore an OpenAlex research subfield</h1>
+        <p>Discover its journal set, rank primary topics, trace five-year change, and map topic co-occurrence.</p>
       </div>
       <form className="analysis-form" onSubmit={submit}>
         <label className="field field-category">
-          <span className="field-label">Category</span>
-          <select value={props.categoryId} onChange={(event) => props.onCategoryChange(event.target.value)} disabled={props.loading || !props.categories.length}>
-            <option value="">Select a category</option>
-            {props.categories.map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.name} · {category.taxonomy}{category.edition ? ` · ${category.edition}` : ""}
+          <span className="field-label">OpenAlex subfield</span>
+          <select value={props.categoryId} onChange={(event) => props.onCategoryChange(event.target.value)} disabled={props.loading || !props.subfields.length}>
+            <option value="">Select a subfield</option>
+            {props.subfields.map((subfield) => (
+              <option key={subfield.id} value={subfield.id}>
+                {subfield.displayName}{subfield.field ? ` · ${subfield.field.displayName}` : ""}
               </option>
             ))}
           </select>
-          <span className="field-helper">Owner-supplied journal membership</span>
+          <span className="field-helper">OpenAlex taxonomy · 254 subfields</span>
         </label>
         <label className="field">
           <span className="field-label">Publication year</span>
           <select value={props.year} onChange={(event) => props.onYearChange(Number(event.target.value))} disabled={props.loading}>
             {years.map((year) => <option key={year} value={year}>{year}</option>)}
           </select>
-          <span className="field-helper">Independent of category edition</span>
+          <span className="field-helper">Used for publications, not taxonomy</span>
         </label>
         <label className="field">
           <span className="field-label">Document types</span>
@@ -56,7 +56,7 @@ export function AnalysisForm(props: AnalysisFormProps) {
           <span className="field-helper">Applied to every result</span>
         </label>
         <button className="primary-button analyze-button" type="submit" disabled={props.loading || !props.categoryId || !props.categoryReady} aria-busy={props.loading}>
-          {props.loading ? "Analyzing…" : props.categoryId && !props.categoryReady ? "Loading category…" : "Analyze"}
+          {props.loading ? "Analyzing…" : props.categoryId && !props.categoryReady ? "Loading subfield…" : "Analyze"}
         </button>
       </form>
     </section>

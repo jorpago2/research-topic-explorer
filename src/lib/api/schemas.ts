@@ -23,6 +23,26 @@ export const resolveSourcesSchema = z.object({
   })),
   unresolvedIssns: z.array(z.string()),
 });
+const hierarchyNodeSchema = z.object({ id: z.string(), displayName: z.string() });
+export const subfieldsSchema = z.object({
+  subfields: z.array(z.object({
+    id: z.string().regex(/^\d{1,8}$/),
+    displayName: z.string(),
+    field: hierarchyNodeSchema.nullable(),
+    domain: hierarchyNodeSchema.nullable(),
+  })),
+});
+export const subfieldSourcesSchema = z.object({
+  sources: z.array(z.object({
+    id: sourceIdSchema,
+    displayName: z.string(),
+    issnL: z.string().nullable(),
+    issns: z.array(z.string()),
+    type: z.string().nullable(),
+    worksCount: z.number().int().nonnegative(),
+  })),
+  nextCursor: z.string().nullable(),
+});
 export const groupedSchema = z.object({
   meta: z.object({
     documentCount: z.number().int().nonnegative(),
@@ -37,8 +57,8 @@ export const topicDetailsSchema = z.object({
     displayName: z.string(),
     description: z.string().nullable(),
     keywords: z.array(z.string()),
-    subfield: z.object({ id: z.string(), displayName: z.string() }).nullable(),
-    field: z.object({ id: z.string(), displayName: z.string() }).nullable(),
-    domain: z.object({ id: z.string(), displayName: z.string() }).nullable(),
+    subfield: hierarchyNodeSchema.nullable(),
+    field: hierarchyNodeSchema.nullable(),
+    domain: hierarchyNodeSchema.nullable(),
   })),
 });

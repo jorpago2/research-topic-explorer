@@ -1,23 +1,13 @@
 import { expect, test } from "@playwright/test";
 
-const category = {
-  schemaVersion: 1,
-  id: "sample-optics",
-  name: "Sample optics",
-  taxonomy: "TEST FIXTURE — NOT JCR",
-  edition: "2024",
-  sourceNote: "Fixture",
-  journals: [{ name: "Optics Express", issns: ["1094-4087"] }],
-};
-
 test.beforeEach(async ({ page }) => {
-  await page.route("**/data/categories/index.json", (route) => route.fulfill({ json: { schemaVersion: 1, categories: [{ id: "sample-optics", name: "Sample optics", taxonomy: "TEST", edition: "2024", file: "sample-optics.json" }] } }));
-  await page.route("**/data/categories/sample-optics.json", (route) => route.fulfill({ json: category }));
+  await page.route("**/data/journal-metrics/index.json", (route) => route.fulfill({ json: { schemaVersion: 1, datasets: [] } }));
   await page.route("**/health", (route) => route.fulfill({ json: { ok: true, data: { status: "ok", version: "v1" } } }));
   await page.route("**/v1/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
     let data: unknown;
-    if (path === "/v1/resolve-sources") data = { sources: [{ id: "S1", displayName: "Optics Express", issnL: "1094-4087", issns: ["1094-4087"], type: "journal" }], unresolvedIssns: [] };
+    if (path === "/v1/openalex-subfields") data = { subfields: [{ id: "3107", displayName: "Optics", field: { id: "31", displayName: "Physics and Astronomy" }, domain: { id: "3", displayName: "Physical Sciences" } }] };
+    else if (path === "/v1/openalex-subfield-sources") data = { sources: [{ id: "S1", displayName: "Optics Express", issnL: "1094-4087", issns: ["1094-4087"], type: "journal", worksCount: 1000 }], nextCursor: null };
     else if (path === "/v1/group-primary-topics") data = { meta: { documentCount: 100, nextCursor: null }, groups: [{ id: "T1", displayName: "Metasurfaces", count: 60 }, { id: "T2", displayName: "Integrated photonics", count: 40 }] };
     else if (path === "/v1/topic-details") data = { topics: ["T1", "T2"].map((id, index) => ({ id, displayName: index ? "Integrated photonics" : "Metasurfaces", description: "Fixture", keywords: ["optics"], subfield: { id: "sub1", displayName: "Optics" }, field: { id: "field1", displayName: "Physics" }, domain: { id: "domain1", displayName: "Physical Sciences" } })) };
     else if (path === "/v1/group-category-years") data = { meta: { documentCount: 300, nextCursor: null }, groups: [2020, 2021, 2022, 2023, 2024].map((year) => ({ id: String(year), displayName: String(year), count: 100 })) };
@@ -30,16 +20,16 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("runs the shareable analysis workflow under a project base path", async ({ page }) => {
-  await page.goto("?category=sample-optics&year=2024&types=article,review&tab=overview&nodes=20");
-  await expect(page.getByRole("heading", { name: "Analyze a journal category" })).toBeVisible();
+  await page.goto("?category=3107&year=2024&types=article,review&tab=overview&nodes=20");
+  await expect(page.getByRole("heading", { name: "Explore an OpenAlex research subfield" })).toBeVisible();
   await page.getByRole("button", { name: "Analyze" }).click();
-  await expect(page.getByRole("heading", { name: "Sample optics · 2024" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Optics · 2024" })).toBeVisible();
   await expect(page.getByText("Metasurfaces", { exact: true }).first()).toBeVisible();
-  await expect(page).toHaveURL(/category=sample-optics.*year=2024/);
+  await expect(page).toHaveURL(/category=3107.*year=2024/);
 
   const rankingDownload = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download CSV" }).first().click();
-  expect((await rankingDownload).suggestedFilename()).toBe("sample-optics-2024-topic-ranking.csv");
+  expect((await rankingDownload).suggestedFilename()).toBe("optics-2024-topic-ranking.csv");
 
   await page.getByRole("tab", { name: "Trends" }).click();
   await expect(page.getByRole("heading", { name: "Topic trends" })).toBeVisible();
@@ -53,9 +43,9 @@ test("runs the shareable analysis workflow under a project base path", async ({ 
 
 test("keeps the core workflow usable at 320 pixels", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 800 });
-  await page.goto("?category=sample-optics&year=2024");
+  await page.goto("?category=3107&year=2024");
   await page.getByRole("button", { name: "Analyze" }).click();
-  await expect(page.getByRole("heading", { name: "Sample optics · 2024" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Optics · 2024" })).toBeVisible();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
   expect(overflow).toBe(false);
 });

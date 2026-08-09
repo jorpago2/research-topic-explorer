@@ -60,7 +60,7 @@ export function downloadTrendsCsv(analysis: AnalysisResult, rows: TrendPoint[]):
 }
 
 export function downloadJournalsCsv(analysis: AnalysisResult, rows: JournalResultRow[]): void {
-  const data = rows.map((row) => ({ source_id: row.sourceId, journal: row.journal, documents: row.documents, share: row.share }));
+  const data = rows.map((row) => ({ source_id: row.sourceId, journal: row.journal, documents: row.documents, share: row.share, jif: row.jif?.jif ?? "", jif_quartile: row.jif?.quartile ?? "", jif_edition: row.jif?.edition ?? "", jif_provider: row.jif?.provider ?? "" }));
   downloadBlob(serializeCsv(data, Object.keys(data[0] ?? {})), "text/csv;charset=utf-8", `${analysisSlug(analysis)}-journals.csv`);
 }
 

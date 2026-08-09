@@ -1,5 +1,11 @@
 import type { Env } from "../types/env";
-import { GROUPS_PER_PAGE, OPENALEX_OR_LIMIT, TOPIC_DETAILS_CONCURRENCY } from "./constants";
+import {
+  GROUPS_PER_PAGE,
+  MAX_SUBFIELD_TOPICS,
+  OPENALEX_OR_LIMIT,
+  SOURCE_DISCOVERY_PAGE_SIZE,
+  TOPIC_DETAILS_CONCURRENCY,
+} from "./constants";
 import { fetchOpenAlexJson, normalizeOpenAlexId } from "./client";
 
 interface OpenAlexMeta {
@@ -25,10 +31,29 @@ interface OpenAlexSource {
   issn_l?: string | null;
   issn?: string[] | null;
   type?: string | null;
+  works_count?: number;
 }
 
 interface OpenAlexSourceResponse {
+  meta?: OpenAlexMeta;
   results?: OpenAlexSource[];
+}
+
+interface OpenAlexSubfield {
+  id?: string | number;
+  display_name?: string;
+  field?: DehydratedEntity | null;
+  domain?: DehydratedEntity | null;
+}
+
+interface OpenAlexSubfieldResponse {
+  meta?: OpenAlexMeta;
+  results?: OpenAlexSubfield[];
+}
+
+interface OpenAlexTopicListResponse {
+  meta?: OpenAlexMeta;
+  results?: Array<{ id?: string }>;
 }
 
 interface DehydratedEntity {
@@ -94,6 +119,83 @@ export async function resolveSources(env: Env, issns: string[]) {
   }
   const resolvedIssns = new Set([...byId.values()].flatMap((source) => [...source.issns, ...(source.issnL ? [source.issnL] : [])]));
   return { sources: [...byId.values()].sort((a, b) => a.displayName.localeCompare(b.displayName)), unresolvedIssns: issns.filter((issn) => !resolvedIssns.has(issn)) };
+}
+
+function normalizeSubfieldId(value: unknown): string | null {
+  const candidate = String(value ?? "").replace(/^https?:\/\/openalex\.org\/subfields\//i, "");
+  return /^\d{1,8}$/.test(candidate) ? candidate : null;
+}
+
+export async function listSubfields(env: Env) {
+  const subfields: Array<{
+    id: string;
+    displayName: string;
+    field: { id: string; displayName: string } | null;
+    domain: { id: string; displayName: string } | null;
+  }> = [];
+  let cursor = "*";
+  for (let page = 0; page < 4; page += 1) {
+    const response = await fetchOpenAlexJson<OpenAlexSubfieldResponse>(env, "/subfields", {
+      per_page: "100",
+      cursor,
+      select: "id,display_name,field,domain",
+    });
+    for (const subfield of response.results ?? []) {
+      const id = normalizeSubfieldId(subfield.id);
+      if (!id || !subfield.display_name) continue;
+      subfields.push({
+        id,
+        displayName: subfield.display_name,
+        field: normalizeEntity(subfield.field),
+        domain: normalizeEntity(subfield.domain),
+      });
+    }
+    const nextCursor = response.meta?.next_cursor;
+    if (!nextCursor) break;
+    if (nextCursor === cursor) throw new Error("UPSTREAM_CURSOR_REPEATED");
+    cursor = nextCursor;
+  }
+  return {
+    subfields: [...new Map(subfields.map((subfield) => [subfield.id, subfield])).values()]
+      .sort((a, b) => (a.domain?.displayName ?? "").localeCompare(b.domain?.displayName ?? "")
+        || (a.field?.displayName ?? "").localeCompare(b.field?.displayName ?? "")
+        || a.displayName.localeCompare(b.displayName)),
+  };
+}
+
+export async function listSubfieldSources(env: Env, subfieldId: string, cursor: string) {
+  const topicResponse = await fetchOpenAlexJson<OpenAlexTopicListResponse>(env, "/topics", {
+    filter: `subfield.id:${subfieldId}`,
+    per_page: String(MAX_SUBFIELD_TOPICS),
+    cursor: "*",
+    select: "id",
+  });
+  if (topicResponse.meta?.next_cursor) throw new Error("SUBFIELD_TOO_LARGE");
+  const topicIds = [...new Set((topicResponse.results ?? [])
+    .map((topic) => normalizeOpenAlexId(topic.id, "T"))
+    .filter((id): id is string => Boolean(id)))];
+  if (!topicIds.length) return { sources: [], nextCursor: null };
+
+  const response = await fetchOpenAlexJson<OpenAlexSourceResponse>(env, "/sources", {
+    filter: `type:journal,has_issn:true,topics.id:${topicIds.join("|")}`,
+    sort: "-works_count",
+    per_page: String(SOURCE_DISCOVERY_PAGE_SIZE),
+    cursor,
+    select: "id,display_name,issn_l,issn,type,works_count",
+  });
+  const sources = (response.results ?? []).flatMap((source) => {
+    const id = normalizeOpenAlexId(source.id, "S");
+    if (!id) return [];
+    return [{
+      id,
+      displayName: source.display_name || id,
+      issnL: source.issn_l ?? null,
+      issns: [...new Set(source.issn ?? [])].sort(),
+      type: source.type ?? null,
+      worksCount: Number(source.works_count) || 0,
+    }];
+  });
+  return { sources, nextCursor: response.meta?.next_cursor ?? null };
 }
 
 export async function groupWorks(
