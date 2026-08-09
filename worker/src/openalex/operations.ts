@@ -2,7 +2,7 @@ import type { Env } from "../types/env";
 import {
   GROUPS_PER_PAGE,
   OPENALEX_OR_LIMIT,
-  SOURCE_DISCOVERY_PAGE_SIZE,
+  SOURCE_DISCOVERY_LIMIT,
   TOPIC_DETAILS_CONCURRENCY,
 } from "./constants";
 import { fetchOpenAlexJson, normalizeOpenAlexId } from "./client";
@@ -162,24 +162,26 @@ export async function listSubfieldSources(env: Env, subfieldId: string, cursor: 
     filter: `primary_topic.subfield.id:${subfieldId},primary_location.source.type:journal,primary_location.source.has_issn:true,type:article|review`,
     group_by: "primary_location.source.id",
     include_xpac: "false",
-    per_page: String(SOURCE_DISCOVERY_PAGE_SIZE),
-    cursor,
+    per_page: String(SOURCE_DISCOVERY_LIMIT),
   });
   const sourceIds = [...new Set((grouped.group_by ?? [])
     .map((group) => normalizeOpenAlexId(String(group.key), "S"))
     .filter((id): id is string => Boolean(id)))];
-  if (!sourceIds.length) return { sources: [], nextCursor: grouped.meta?.next_cursor ?? null };
+  if (!sourceIds.length) return { sources: [], nextCursor: null };
 
-  const response = await fetchOpenAlexJson<OpenAlexSourceResponse>(env, "/sources", {
-    filter: `openalex:${sourceIds.join("|")}`,
-    per_page: String(SOURCE_DISCOVERY_PAGE_SIZE),
-    select: "id,display_name,issn_l,issn,type,works_count",
-  });
+  const responses: OpenAlexSourceResponse[] = [];
+  for (const batch of chunk(sourceIds, OPENALEX_OR_LIMIT)) {
+    responses.push(await fetchOpenAlexJson<OpenAlexSourceResponse>(env, "/sources", {
+      filter: `openalex:${batch.join("|")}`,
+      per_page: String(OPENALEX_OR_LIMIT),
+      select: "id,display_name,issn_l,issn,type,works_count",
+    }));
+  }
   const rank = new Map((grouped.group_by ?? []).flatMap((group, index) => {
     const id = normalizeOpenAlexId(String(group.key), "S");
     return id ? [[id, index] as const] : [];
   }));
-  const sources = (response.results ?? []).flatMap((source) => {
+  const sources = responses.flatMap((response) => response.results ?? []).flatMap((source) => {
     const id = normalizeOpenAlexId(source.id, "S");
     if (!id) return [];
     return [{
@@ -192,7 +194,7 @@ export async function listSubfieldSources(env: Env, subfieldId: string, cursor: 
     }];
   });
   sources.sort((a, b) => (rank.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.id) ?? Number.MAX_SAFE_INTEGER));
-  return { sources, nextCursor: grouped.meta?.next_cursor ?? null };
+  return { sources, nextCursor: null };
 }
 
 export async function groupWorks(

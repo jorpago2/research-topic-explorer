@@ -9,7 +9,7 @@ export function AnalysisSummary({ analysis }: { analysis: AnalysisResult }) {
       <div className="result-title">
         <div>
           <h2 id="result-heading">{analysis.category.name} · {analysis.year}</h2>
-          <p>{analysis.category.taxonomy}{analysis.metadata.sourceSetTruncated ? " · 500-journal safety cap applied" : ""}</p>
+          <p>{analysis.category.taxonomy}{analysis.metadata.sourceSetTruncated ? " · 200-journal safety cap applied" : ""}</p>
         </div>
         <p className="generated-time">Generated <time dateTime={analysis.metadata.generatedAt}>{new Date(analysis.metadata.generatedAt).toLocaleString()}</time></p>
       </div>
