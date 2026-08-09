@@ -15,7 +15,10 @@ function request(path: string, body?: unknown, requestOrigin = origin, method = 
   });
 }
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 describe("Worker security boundary", () => {
   it("adds the secret upstream but never returns it downstream", async () => {
@@ -60,6 +63,53 @@ describe("Worker security boundary", () => {
   });
   it("builds deterministic cache material", () => {
     expect(stableStringify({ b: [2, 1], a: "x" })).toBe(stableStringify({ a: "x", b: [2, 1] }));
+  });
+  it("does not spend the upstream rate allowance on a cache hit", async () => {
+    const limit = vi.fn(async () => ({ success: false }));
+    vi.stubGlobal("caches", {
+      open: vi.fn(async () => ({
+        match: vi.fn(async () => Response.json({ ok: true, data: { meta: { documentCount: 10, nextCursor: null }, groups: [] } })),
+        put: vi.fn(),
+      })),
+    });
+    const response = await handleRequest(
+      request("/v1/group-primary-topics", { sourceIds: ["S1"], year: 2024, types: [], cursor: "*" }),
+      { ...env, API_RATE_LIMITER: { limit } as Env["API_RATE_LIMITER"] },
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("X-App-Cache")).toBe("HIT");
+    expect(limit).not.toHaveBeenCalled();
+  });
+  it("still rate-limits a cache miss before contacting OpenAlex", async () => {
+    const limit = vi.fn(async () => ({ success: false }));
+    const upstreamFetch = vi.fn();
+    vi.stubGlobal("fetch", upstreamFetch);
+    vi.stubGlobal("caches", {
+      open: vi.fn(async () => ({ match: vi.fn(async () => undefined), put: vi.fn() })),
+    });
+    const response = await handleRequest(
+      request("/v1/group-primary-topics", { sourceIds: ["S1"], year: 2024, types: [], cursor: "*" }),
+      { ...env, API_RATE_LIMITER: { limit } as Env["API_RATE_LIMITER"] },
+    );
+    expect(response.status).toBe(429);
+    expect(limit).toHaveBeenCalledOnce();
+    expect(upstreamFetch).not.toHaveBeenCalled();
+  });
+  it("stops grouped paging after a non-full OpenAlex page", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({
+      meta: { count: 10, next_cursor: "terminal-cursor" },
+      group_by: [{ key: "https://openalex.org/T1", key_display_name: "Topic", count: 10 }],
+    })));
+    const response = await handleRequest(request("/v1/group-primary-topics", { sourceIds: ["S1"], year: 2024, types: [], cursor: "*" }), env);
+    expect(await response.json()).toMatchObject({ ok: true, data: { meta: { nextCursor: null } } });
+  });
+  it("preserves the cursor after a full 200-group OpenAlex page", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({
+      meta: { count: 200, next_cursor: "next-group-page" },
+      group_by: Array.from({ length: 200 }, (_, index) => ({ key: `https://openalex.org/T${index + 1}`, key_display_name: `Topic ${index + 1}`, count: 1 })),
+    })));
+    const response = await handleRequest(request("/v1/group-primary-topics", { sourceIds: ["S1"], year: 2024, types: [], cursor: "*" }), env);
+    expect(await response.json()).toMatchObject({ ok: true, data: { meta: { nextCursor: "next-group-page" } } });
   });
   it.each([
     ["/v1/group-primary-topics", { sourceIds: ["S1"], year: 2024, types: [], cursor: "*", subfieldId: "3107" }, "primary_topic.subfield.id%3A3107"],

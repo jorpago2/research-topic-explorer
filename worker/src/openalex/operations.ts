@@ -231,7 +231,10 @@ export async function groupWorks(
   return {
     meta: {
       documentCount: Number(response.meta?.count) || 0,
-      nextCursor: response.meta?.next_cursor ?? null,
+      // OpenAlex can return an opaque cursor after the final non-empty group
+      // page. A short page proves that no further groups remain and avoids a
+      // second request whose only result would be an empty page.
+      nextCursor: groups.length < GROUPS_PER_PAGE ? null : response.meta?.next_cursor ?? null,
       ...(typeof response.meta?.cost_usd === "number" ? { costUsd: response.meta.cost_usd } : {}),
     },
     groups,

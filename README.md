@@ -136,7 +136,7 @@ POST /v1/openalex-subfields
 POST /v1/openalex-subfield-sources
 ```
 
-It enforces exact-origin CORS, a 32 KiB request body cap, schema validation, ISSN checksums, `S\d+`/`T\d+` identifiers, reasonable years, a maximum 15-year range, 500 ISSNs, 100 source IDs, and 40 topic IDs. The Cloudflare rate-limit binding defaults to 60 requests per 60 seconds per origin/client key; this was raised from 30 after a production Optics analysis demonstrated that exhaustive group paging plus an interactive network could legitimately exceed 30. Topic metadata uses a bounded four-request upstream pool; no unbounded user-derived `Promise.all` is used.
+It enforces exact-origin CORS, a 32 KiB request body cap, schema validation, ISSN checksums, `S\d+`/`T\d+` identifiers, reasonable years, a maximum 15-year range, 500 ISSNs, 100 source IDs, and 40 topic IDs. The Cloudflare rate-limit binding defaults to 60 cache-miss requests per 60 seconds per origin/client key; cache hits do not contact OpenAlex and therefore do not consume this allowance. Group paging stops after a short page instead of following OpenAlex's terminal cursor to an empty page. Topic metadata uses a bounded four-request upstream pool; no unbounded user-derived `Promise.all` is used.
 
 Sanitized responses are cached with deterministic keys that exclude the API key. Source and topic metadata use 30-day TTLs; historical aggregations use seven days; current-year aggregations use 12 hours. Responses may include `X-App-Cache: HIT|MISS`.
 

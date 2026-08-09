@@ -167,12 +167,6 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
     return jsonResponse({ ok: false, error: { code: "INVALID_REQUEST", message: "The requested operation does not exist." } }, 404, origin);
   }
 
-  if (env.API_RATE_LIMITER) {
-    const client = request.headers.get("CF-Connecting-IP") || "unknown";
-    const limit = await env.API_RATE_LIMITER.limit({ key: `${origin}:${client}` });
-    if (!limit.success) return errorResponse({ code: "OPENALEX_RATE_LIMITED", message: "This client has reached the request limit. Please wait before retrying.", status: 429, retryAfter: "60" }, origin);
-  }
-
   try {
     const body = await parseBody(request);
     const parsed = await normalizeForCache(url.pathname, body);
@@ -181,6 +175,14 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
     const cache = typeof caches === "undefined" ? null : await caches.open("research-topic-explorer-v2");
     const cached = cache ? await cache.match(cacheKey) : undefined;
     if (cached) return jsonResponse(await cached.json(), 200, origin, { "X-App-Cache": "HIT" });
+
+    // Cached responses do not contact OpenAlex and should not consume the
+    // client's upstream-request allowance. Unique cache misses remain bounded.
+    if (env.API_RATE_LIMITER) {
+      const client = request.headers.get("CF-Connecting-IP") || "unknown";
+      const limit = await env.API_RATE_LIMITER.limit({ key: `${origin}:${client}` });
+      if (!limit.success) return errorResponse({ code: "OPENALEX_RATE_LIMITED", message: "This client has reached the request limit. Please wait before retrying.", status: 429, retryAfter: "60" }, origin);
+    }
 
     const result = await executeRoute(url.pathname, body, env);
     const envelope = { ok: true, data: result.data };
