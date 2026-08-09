@@ -73,14 +73,15 @@ describe("Worker security boundary", () => {
     vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       urls.push(url);
-      if (url.includes("/topics?")) return Response.json({ meta: { next_cursor: null }, results: [{ id: "https://openalex.org/T1" }] });
+      if (url.includes("/works?")) return Response.json({ meta: { next_cursor: null }, group_by: [{ key: "https://openalex.org/S1", key_display_name: "Optics Express", count: 100 }] });
       return Response.json({ meta: { next_cursor: null }, results: [{ id: "https://openalex.org/S1", display_name: "Optics Express", issn_l: "1094-4087", issn: ["1094-4087"], type: "journal", works_count: 1000 }] });
     }));
     const response = await handleRequest(request("/v1/openalex-subfield-sources", { subfieldId: "3107", cursor: "*" }), env);
     expect(response.status).toBe(200);
-    expect(urls[0]).toContain("filter=subfield.id%3A3107");
-    expect(urls[1]).toContain("type%3Ajournal");
-    expect(urls[1]).toContain("has_issn%3Atrue");
+    expect(urls[0]).toContain("primary_topic.subfield.id%3A3107");
+    expect(urls[0]).toContain("primary_location.source.type%3Ajournal");
+    expect(urls[0]).toContain("include_xpac=false");
+    expect(urls[1]).toContain("openalex%3AS1");
     expect(await response.text()).not.toContain("test-secret-never-return");
   });
   it("rejects arbitrary OpenAlex taxonomy input", async () => {

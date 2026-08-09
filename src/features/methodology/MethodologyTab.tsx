@@ -9,7 +9,7 @@ export function MethodologyTab({ analysis, fallbackMode }: { analysis?: Analysis
         <p className="methodology-disclaimer"><strong>Important distinction.</strong> Journal-set membership and topic classifications come from OpenAlex. Journal Impact Factor, when present, is separate Clarivate metadata. It does not determine membership, topic counts, trends, or network links; these results are not official JCR analytics.</p>
       </section>
       <div className="methodology-grid">
-        <section><h4>Journal set</h4><p>A Source belongs to the selected OpenAlex Subfield when at least one of its up to 25 highest-volume OpenAlex Topics belongs to that subfield. Sources must be journals with an ISSN. Sets are capped at the 500 largest Sources by OpenAlex works count.</p></section>
+        <section><h4>Journal set</h4><p>OpenAlex articles and reviews are filtered by <code>primary_topic.subfield.id</code> and grouped by journal Source. The 500 Sources with the most matching works form the bounded journal set. Sources must be journals with an ISSN.</p></section>
         <section><h4>Topic ranking</h4><p>Works are grouped by <code>primary_topic.id</code>. A work has one primary topic, so each classified document contributes once to the ranking. Shares use all analyzed documents as the denominator.</p></section>
         <section><h4>Topic relationships</h4><p>Network nodes come from the primary-topic ranking. Edges use every OpenAlex topic attached to a matching work and therefore represent topic co-occurrence, not primary-topic overlap.</p></section>
         <section><h4>Journal assignment</h4><p>Works are assigned through <code>primary_location.source.id</code>. Alternate locations do not expand the journal set. OpenAlex XPAC records are explicitly excluded.</p></section>
@@ -17,7 +17,7 @@ export function MethodologyTab({ analysis, fallbackMode }: { analysis?: Analysis
         <section><h4>JIF enrichment</h4><p>JIF is matched after classification using eISSN. Missing JIF values remain missing and never exclude a journal. The metric edition is recorded in exports when a licensed owner-supplied dataset is available.</p></section>
         <section><h4>Reproducibility</h4><p>Exports contain OpenAlex Subfield ID, year, document types, Source IDs, journal-set rule, safety cap, counting method, JIF edition when present, and generation time.</p></section>
       </div>
-      <section className="methodology-flow" aria-label="Data methodology flow"><span>OpenAlex Subfield</span><b aria-hidden="true">→</b><span>Source top topics</span><b aria-hidden="true">→</b><span>Journal set</span><b aria-hidden="true">→</b><span>Works</span><b aria-hidden="true">→</b><span>OpenAlex Topics</span></section>
+      <section className="methodology-flow" aria-label="Data methodology flow"><span>OpenAlex Subfield</span><b aria-hidden="true">→</b><span>Primary-topic works</span><b aria-hidden="true">→</b><span>Top journal Sources</span><b aria-hidden="true">→</b><span>Selected-year works</span><b aria-hidden="true">→</b><span>OpenAlex Topics</span></section>
     </div>
   );
 }

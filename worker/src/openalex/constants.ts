@@ -8,9 +8,8 @@ export const MIN_PUBLICATION_YEAR = 1800;
 export const MAX_REQUEST_BODY_BYTES = 32_768;
 export const GROUPS_PER_PAGE = 200;
 export const TOPIC_DETAILS_CONCURRENCY = 4;
-export const MAX_SUBFIELD_TOPICS = 100;
 export const SOURCE_DISCOVERY_PAGE_SIZE = 100;
-export const CACHE_SCHEMA_VERSION = "3";
+export const CACHE_SCHEMA_VERSION = "4";
 
 export const CACHE_TTL_SECONDS = {
   sourceResolution: 30 * 24 * 60 * 60,

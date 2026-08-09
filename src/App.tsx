@@ -49,7 +49,7 @@ export default function App() {
 
   useEffect(() => {
     if (subfieldsQuery.data?.subfields.length && !subfieldsQuery.data.subfields.some((subfield) => subfield.id === categoryId)) {
-      const optics = subfieldsQuery.data.subfields.find((subfield) => subfield.displayName.toLocaleLowerCase() === "optics");
+      const optics = subfieldsQuery.data.subfields.find((subfield) => subfield.displayName.toLocaleLowerCase().includes("optics"));
       setCategoryId(optics?.id ?? subfieldsQuery.data.subfields[0].id);
     }
   }, [subfieldsQuery.data, categoryId]);
@@ -125,7 +125,7 @@ export default function App() {
         ) : (
           <section id="methodology-note" className="methodology-note">
             <strong>Methodology boundary</strong>
-            <p>OpenAlex Subfields define the journal set through each Source’s highest-volume topics. JIF, when available, is separate Clarivate metadata and does not affect classification or topic ranking.</p>
+            <p>OpenAlex Subfields define a journal set by grouping articles and reviews on their primary-topic subfield and Source. JIF, when available, is separate Clarivate metadata and does not affect classification or topic ranking.</p>
           </section>
         )}
       </main>

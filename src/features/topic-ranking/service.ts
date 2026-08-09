@@ -106,12 +106,12 @@ export async function analyzeOpenAlexSubfield(
     id: `openalex-subfield-${subfield.id}`,
     name: subfield.displayName,
     taxonomy: "OpenAlex Subfield",
-    sourceNote: "Journal membership is derived from the up to 25 highest-volume OpenAlex Topics attached to each Source.",
+    sourceNote: "Journal membership is derived from the number of OpenAlex articles and reviews whose primary topic belongs to the selected Subfield.",
     journals: discovery.sources.map((source) => ({ name: source.displayName, issns: source.issns.length ? source.issns : source.issnL ? [source.issnL] : [] })),
   };
   const coverage = buildCoverageReport(category.journals, discovery.sources, []);
   return analyzeResolvedJournalSet(category, discovery.sources, coverage, year, documentTypeMode, onPhase, signal, {
-    journalSetMethod: "openalex-source-top-topics",
+    journalSetMethod: "openalex-primary-subfield-source-groups",
     sourceSetTruncated: discovery.truncated,
     jifDataset,
   });
@@ -126,7 +126,7 @@ async function analyzeResolvedJournalSet(
   onPhase: (phase: AnalysisPhase) => void,
   signal?: AbortSignal,
   options?: {
-    journalSetMethod?: "openalex-source-top-topics";
+    journalSetMethod?: "openalex-primary-subfield-source-groups";
     sourceSetTruncated?: boolean;
     jifDataset?: JifDataset | null;
   },
