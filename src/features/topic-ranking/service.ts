@@ -5,6 +5,7 @@ import { mapWithConcurrency } from "../../lib/concurrency";
 import { deduplicateIssns } from "../../lib/issn";
 import type {
   AnalysisResult,
+  AnalysisScope,
   CategoryDefinition,
   DocumentTypeMode,
   GroupRow,
@@ -97,6 +98,7 @@ async function discoverSubfieldSources(subfieldId: string, signal?: AbortSignal)
 export async function analyzeOpenAlexSubfield(
   subfield: OpenAlexSubfield,
   year: number,
+  analysisScope: AnalysisScope,
   documentTypeMode: DocumentTypeMode,
   jifDataset: JifDataset | null | undefined,
   onPhase: (phase: AnalysisPhase) => void,
@@ -115,6 +117,8 @@ export async function analyzeOpenAlexSubfield(
   };
   const coverage = buildCoverageReport(category.journals, discovery.sources, []);
   return analyzeResolvedJournalSet(category, discovery.sources, coverage, year, documentTypeMode, onPhase, signal, {
+    analysisScope,
+    scopeSubfieldId: subfield.id,
     journalSetMethod: "openalex-primary-subfield-source-groups",
     sourceSetTruncated: discovery.truncated,
     jifDataset,
@@ -130,6 +134,8 @@ async function analyzeResolvedJournalSet(
   onPhase: (phase: AnalysisPhase) => void,
   signal?: AbortSignal,
   options?: {
+    analysisScope?: AnalysisScope;
+    scopeSubfieldId?: string;
     journalSetMethod?: "openalex-primary-subfield-source-groups";
     sourceSetTruncated?: boolean;
     jifDataset?: JifDataset | null;
@@ -137,10 +143,14 @@ async function analyzeResolvedJournalSet(
 ): Promise<AnalysisResult> {
 
   onPhase("ranking");
+  const analysisScope = options?.analysisScope ?? "journal-set";
+  const scopeRequest = analysisScope === "strict-subfield" && options?.scopeSubfieldId
+    ? { subfieldId: options.scopeSubfieldId }
+    : {};
   const sourceChunks = chunkArray(sources.map((source) => source.id).sort(), CLIENT_SOURCE_CHUNK_SIZE);
   const documentTypes = documentTypesForMode(documentTypeMode);
   const chunkResults = await mapWithConcurrency(sourceChunks, CLIENT_GROUP_CONCURRENCY, (sourceIds) =>
-    fetchAllGroupedPages("/v1/group-primary-topics", { sourceIds, year, types: documentTypes, cursor: "*" }, signal),
+    fetchAllGroupedPages("/v1/group-primary-topics", { sourceIds, year, types: documentTypes, cursor: "*", ...scopeRequest }, signal),
   );
   const analyzedDocuments = chunkResults.reduce((sum, result) => sum + result.documentCount, 0);
   const mergedGroups = mergeGroupedCounts(chunkResults.map((result) => result.groups));
@@ -158,6 +168,7 @@ async function analyzeResolvedJournalSet(
   return {
     category,
     year,
+    analysisScope,
     documentTypeMode,
     documentTypes,
     coverage,
@@ -183,9 +194,17 @@ async function analyzeResolvedJournalSet(
       topicCountingMethod: "openalex-primary-topic",
       networkMethod: "openalex-topic-cooccurrence",
       includeXpac: false,
+      analysisScope,
+      ...(analysisScope === "strict-subfield" && options?.scopeSubfieldId ? { scopeSubfieldId: options.scopeSubfieldId } : {}),
       ...(options?.journalSetMethod ? { journalSetMethod: options.journalSetMethod } : {}),
       ...(options?.sourceSetTruncated !== undefined ? { sourceSetTruncated: options.sourceSetTruncated } : {}),
       ...(options?.jifDataset ? { jifEdition: options.jifDataset.edition } : {}),
     },
   };
+}
+
+export function scopeRequestForAnalysis(analysis: Pick<AnalysisResult, "analysisScope" | "metadata">): { subfieldId?: string } {
+  return analysis.analysisScope === "strict-subfield" && analysis.metadata.scopeSubfieldId
+    ? { subfieldId: analysis.metadata.scopeSubfieldId }
+    : {};
 }

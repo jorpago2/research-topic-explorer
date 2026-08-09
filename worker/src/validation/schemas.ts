@@ -33,6 +33,7 @@ export const groupedYearRequestSchema = z.object({
   year: publicationYear,
   types: documentTypes,
   cursor: z.string().min(1).max(2048).default("*"),
+  subfieldId: subfieldId.optional(),
 }).strict();
 
 export const topicDetailsRequestSchema = z.object({
@@ -45,6 +46,7 @@ export const topicYearsRequestSchema = z.object({
   startYear: publicationYear,
   endYear: publicationYear,
   types: documentTypes,
+  subfieldId: subfieldId.optional(),
 }).strict().refine((value) => value.endYear >= value.startYear, {
   message: "endYear must be greater than or equal to startYear.",
 }).refine((value) => value.endYear - value.startYear + 1 <= MAX_YEAR_RANGE, {
@@ -56,6 +58,7 @@ export const categoryYearsRequestSchema = z.object({
   startYear: publicationYear,
   endYear: publicationYear,
   types: documentTypes,
+  subfieldId: subfieldId.optional(),
 }).strict().refine((value) => value.endYear >= value.startYear, {
   message: "endYear must be greater than or equal to startYear.",
 }).refine((value) => value.endYear - value.startYear + 1 <= MAX_YEAR_RANGE, {
@@ -68,6 +71,7 @@ export const cooccurrenceRequestSchema = z.object({
   year: publicationYear,
   types: documentTypes,
   cursor: z.string().min(1).max(2048).default("*"),
+  subfieldId: subfieldId.optional(),
 }).strict();
 
 export const subfieldsRequestSchema = z.object({}).strict();

@@ -9,7 +9,8 @@ No Clarivate/JCR website is scraped. The repository does not include the supplie
 ## What it does
 
 - Loads the current OpenAlex Subfield catalog and automatically derives an ISSN-bearing journal set from primary-topic work groups.
-- Ranks all OpenAlex primary topics for a publication year using `group_by=primary_topic.id`; each classified work contributes once to the ranking.
+- Supports two explicit analysis scopes: **Strict selected subfield** filters the final corpus by `primary_topic.subfield.id`, while **Entire journal set** analyzes every selected-year work from the discovered journals.
+- Ranks OpenAlex primary topics for a publication year using `group_by=primary_topic.id`; each classified work contributes once to the ranking.
 - Shows counts, shares, classification coverage, hierarchy metadata, five-year trends, year-over-year growth, and a journal breakdown.
 - Builds a bounded topic co-occurrence network and renders it with the official `vosviewer-online` React component.
 - Exports topic rankings, trends, and journals as CSV and the network as VOSviewer JSON.
@@ -83,7 +84,9 @@ The selector uses the OpenAlex hierarchy [`Domain → Field → Subfield → Top
 
 The Worker requests a non-paginated group page of 100 Sources, which OpenAlex returns by matching-work count. Cursor paging is deliberately not used because OpenAlex sorts paged groups by key rather than count. The 100-Source limit keeps a complete primary-topic analysis plus a normal network generation within the public Worker's interactive request budget. This produces a reproducible, bounded journal set without manual classification. It is an OpenAlex-derived operational definition, not a JCR category.
 
-The analyzed publication year is independent of this Source-level taxonomy. The selected Source IDs are fixed for topic rankings, trends, journal breakdowns, and network construction in a completed analysis.
+The analyzed publication year is independent of this Source-level taxonomy. The selected Source IDs are fixed for topic rankings, trends, journal breakdowns, and network construction in a completed analysis. In the default **Strict selected subfield** scope, every final works query also includes the selected `primary_topic.subfield.id`. The optional **Entire journal set** scope omits that final filter and preserves the broader journal-set interpretation used by older shared URLs.
+
+Shareable URLs record the scope as `scope=strict` or `scope=journals`. Existing URLs without `scope` retain journal-set behavior; new analyses default to strict scope.
 
 The older owner-supplied category ingestion layer remains in `public/data/categories/` for compatibility and validation, but it is no longer used by the main selector.
 
@@ -104,6 +107,7 @@ The UI then shows JIF and quartile in the Journals tab and in a user-initiated l
 ## Methodology
 
 - **Journal-set rule:** the 100 journals with the most OpenAlex articles/reviews whose primary topic belongs to the selected Subfield define the set; membership is not inferred from JIF.
+- **Analysis scope:** strict scope retains only works whose primary topic belongs to the selected Subfield; journal-set scope retains all matching works from the discovered Sources. The selected scope applies consistently to rankings, trends, journal counts, and network queries.
 - **Journal assignment:** works are filtered by `primary_location.source.id`.
 - **Counting rule:** the topic ranking groups on `primary_topic.id`, giving each classified work exactly one primary-topic count.
 - **Document types:** the default is OpenAlex `article` plus `review`; choosing all types omits the type filter.
@@ -186,11 +190,12 @@ npm audit
 
 ## Reproducibility metadata
 
-CSV and JSON downloads carry or derive the OpenAlex Subfield ID/name, journal-set rule, truncation flag, analyzed publication year, selected work types, Source IDs, analyzed and classified counts, counting/network rules, XPAC exclusion, optional JIF edition/provider, and generation timestamp. API cache contents are accelerators, not a database of record.
+CSV and JSON downloads carry or derive the OpenAlex Subfield ID/name, analysis scope, journal-set rule, truncation flag, analyzed publication year, selected work types, Source IDs, analyzed and classified counts, counting/network rules, XPAC exclusion, optional JIF edition/provider, and generation timestamp. API cache contents are accelerators, not a database of record.
 
 ## Known limits
 
 - OpenAlex primary-topic assignments are non-exclusive at journal-set level and can change when OpenAlex updates its records.
+- Strict scope follows the official OpenAlex Subfield boundary exactly; it cannot separate concepts combined in one OpenAlex category, such as atomic and molecular physics with optics.
 - The 100-Source cap favors journals with the most matching primary-topic articles/reviews and is reported in methodology metadata.
 - Clarivate JIF data is never loaded from the public deployment. Users must select a legitimate local dataset, which remains in browser memory for the current tab only.
 - Results inherit OpenAlex coverage and classification quality and can change as OpenAlex updates records.

@@ -20,6 +20,7 @@ describe("network construction", () => {
     const analysis = {
       category: { schemaVersion: 1 as const, id: "sample", name: "Sample", taxonomy: "TEST", sourceNote: "Fixture", journals: [] },
       year: 2024,
+      analysisScope: "journal-set" as const,
       topicDetails: new Map(),
     };
     const first = buildVosviewerJson(analysis, topics, [{ sourceId: "T1", targetId: "T2", strength: 12 }]);

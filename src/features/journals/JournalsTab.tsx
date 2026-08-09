@@ -14,7 +14,7 @@ export function JournalsTab({ analysis }: { analysis: AnalysisResult }) {
         <Column sm={4} md={8} lg={16}>
           <Tile className="rte-section-tile rte-table-tile">
             <div className="rte-section-heading">
-              <div><h3 id="journals-heading">Journal breakdown</h3><p>Works use OpenAlex <code>primary_location.source</code>. Locally loaded JIF metadata is matched by eISSN.</p></div>
+              <div><h3 id="journals-heading">Journal breakdown</h3><p>Works use OpenAlex <code>primary_location.source</code>{analysis.analysisScope === "strict-subfield" ? " and must match the selected primary-topic Subfield" : " across the entire discovered journal set"}. Locally loaded JIF metadata is matched by eISSN.</p></div>
               {rows ? <Button kind="secondary" size="md" type="button" onClick={() => downloadJournalsCsv(analysis, rows)}>Download CSV</Button> : null}
             </div>
             {query.isPending ? <InlineLoading description="Loading journal groups…" /> : query.isError ? <InlineNotification kind="error" lowContrast hideCloseButton title="Journal data unavailable" subtitle={query.error.message} /> : (

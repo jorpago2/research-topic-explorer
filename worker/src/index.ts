@@ -85,6 +85,15 @@ function assertNoFutureYears(value: unknown): void {
   }
 }
 
+function primarySubfieldFilter(subfieldId?: string): string | undefined {
+  return subfieldId ? `primary_topic.subfield.id:${subfieldId}` : undefined;
+}
+
+function combineFilters(...filters: Array<string | undefined>): string | undefined {
+  const values = filters.filter((value): value is string => Boolean(value));
+  return values.length ? values.join(",") : undefined;
+}
+
 async function executeRoute(path: string, body: unknown, env: Env): Promise<{ data: unknown; ttl: number; normalizedBody: unknown }> {
   switch (path) {
     case "/v1/resolve-sources": {
@@ -101,7 +110,7 @@ async function executeRoute(path: string, body: unknown, env: Env): Promise<{ da
     }
     case "/v1/group-primary-topics": {
       const normalizedBody = groupedYearRequestSchema.parse(body);
-      return { data: await groupWorks(env, normalizedBody.sourceIds, normalizedBody.year, normalizedBody.types, "primary_topic.id", normalizedBody.cursor), ttl: aggregationTtl(normalizedBody.year), normalizedBody };
+      return { data: await groupWorks(env, normalizedBody.sourceIds, normalizedBody.year, normalizedBody.types, "primary_topic.id", normalizedBody.cursor, primarySubfieldFilter(normalizedBody.subfieldId)), ttl: aggregationTtl(normalizedBody.year), normalizedBody };
     }
     case "/v1/topic-details": {
       const normalizedBody = topicDetailsRequestSchema.parse(body);
@@ -109,19 +118,19 @@ async function executeRoute(path: string, body: unknown, env: Env): Promise<{ da
     }
     case "/v1/group-topic-years": {
       const normalizedBody = topicYearsRequestSchema.parse(body);
-      return { data: await groupWorks(env, normalizedBody.sourceIds, `${normalizedBody.startYear}-${normalizedBody.endYear}`, normalizedBody.types, "publication_year", "*", `primary_topic.id:${normalizedBody.topicId}`), ttl: aggregationTtl(normalizedBody.endYear), normalizedBody };
+      return { data: await groupWorks(env, normalizedBody.sourceIds, `${normalizedBody.startYear}-${normalizedBody.endYear}`, normalizedBody.types, "publication_year", "*", combineFilters(`primary_topic.id:${normalizedBody.topicId}`, primarySubfieldFilter(normalizedBody.subfieldId))), ttl: aggregationTtl(normalizedBody.endYear), normalizedBody };
     }
     case "/v1/group-category-years": {
       const normalizedBody = categoryYearsRequestSchema.parse(body);
-      return { data: await groupWorks(env, normalizedBody.sourceIds, `${normalizedBody.startYear}-${normalizedBody.endYear}`, normalizedBody.types, "publication_year", "*"), ttl: aggregationTtl(normalizedBody.endYear), normalizedBody };
+      return { data: await groupWorks(env, normalizedBody.sourceIds, `${normalizedBody.startYear}-${normalizedBody.endYear}`, normalizedBody.types, "publication_year", "*", primarySubfieldFilter(normalizedBody.subfieldId)), ttl: aggregationTtl(normalizedBody.endYear), normalizedBody };
     }
     case "/v1/group-sources": {
       const normalizedBody = groupedYearRequestSchema.parse(body);
-      return { data: await groupWorks(env, normalizedBody.sourceIds, normalizedBody.year, normalizedBody.types, "primary_location.source.id", normalizedBody.cursor), ttl: aggregationTtl(normalizedBody.year), normalizedBody };
+      return { data: await groupWorks(env, normalizedBody.sourceIds, normalizedBody.year, normalizedBody.types, "primary_location.source.id", normalizedBody.cursor, primarySubfieldFilter(normalizedBody.subfieldId)), ttl: aggregationTtl(normalizedBody.year), normalizedBody };
     }
     case "/v1/group-topic-cooccurrence": {
       const normalizedBody = cooccurrenceRequestSchema.parse(body);
-      return { data: await groupWorks(env, normalizedBody.sourceIds, normalizedBody.year, normalizedBody.types, "topics.id", normalizedBody.cursor, `topics.id:${normalizedBody.seedTopicId}`), ttl: aggregationTtl(normalizedBody.year), normalizedBody };
+      return { data: await groupWorks(env, normalizedBody.sourceIds, normalizedBody.year, normalizedBody.types, "topics.id", normalizedBody.cursor, combineFilters(`topics.id:${normalizedBody.seedTopicId}`, primarySubfieldFilter(normalizedBody.subfieldId))), ttl: aggregationTtl(normalizedBody.year), normalizedBody };
     }
     default:
       throw new Error("UNKNOWN_ROUTE");

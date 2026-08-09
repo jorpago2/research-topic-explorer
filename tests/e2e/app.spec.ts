@@ -4,6 +4,9 @@ test.beforeEach(async ({ page }) => {
   await page.route("**/health", (route) => route.fulfill({ json: { ok: true, data: { status: "ok", version: "v1" } } }));
   await page.route("**/v1/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
+    if (path.startsWith("/v1/group-") && new URL(page.url()).searchParams.get("scope") === "strict") {
+      expect(route.request().postDataJSON()).toMatchObject({ subfieldId: "3107" });
+    }
     let data: unknown;
     if (path === "/v1/openalex-subfields") data = { subfields: [
       { id: "3107", displayName: "Optics", field: { id: "31", displayName: "Physics and Astronomy" }, domain: { id: "3", displayName: "Physical Sciences" } },
@@ -24,14 +27,16 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("runs the shareable analysis workflow under a project base path", async ({ page }) => {
-  await page.goto("?category=3107&year=2024&types=article,review&tab=overview&nodes=20");
+  await page.goto("?category=3107&year=2024&scope=strict&types=article,review&tab=overview&nodes=20");
   await expect(page.getByRole("heading", { name: "Explore an OpenAlex research subfield" })).toBeVisible();
   const domainSelect = page.getByLabel("OpenAlex domain");
   const fieldSelect = page.getByLabel("OpenAlex field");
   const subfieldInput = page.getByRole("combobox", { name: "OpenAlex subfield" });
+  const scopeSelect = page.getByRole("combobox", { name: "Analysis scope" });
   await expect(domainSelect).toHaveValue("3");
   await expect(fieldSelect).toHaveValue("31");
   await expect(subfieldInput).toHaveValue("Optics");
+  await expect(scopeSelect).toHaveValue("strict-subfield");
   await domainSelect.selectOption("1");
   await expect(subfieldInput).toHaveValue("Agronomy");
   await domainSelect.selectOption("3");
@@ -70,7 +75,7 @@ test("runs the shareable analysis workflow under a project base path", async ({ 
 
   const rankingDownload = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download CSV" }).first().click();
-  expect((await rankingDownload).suggestedFilename()).toBe("optics-2024-topic-ranking.csv");
+  expect((await rankingDownload).suggestedFilename()).toBe("optics-2024-strict-subfield-topic-ranking.csv");
 
   await page.getByRole("tab", { name: "Trends" }).click();
   await expect(page.getByRole("heading", { name: "Topic trends" })).toBeVisible();

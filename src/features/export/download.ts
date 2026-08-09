@@ -20,7 +20,15 @@ function downloadBlob(content: string, mimeType: string, filename: string): void
 }
 
 function analysisSlug(analysis: AnalysisResult): string {
-  return `${slugifyExportFilename(analysis.category.name)}-${analysis.year}`;
+  const scope = analysis.analysisScope === "strict-subfield" ? "strict-subfield" : "journal-set";
+  return `${slugifyExportFilename(analysis.category.name)}-${analysis.year}-${scope}`;
+}
+
+function scopeColumns(analysis: AnalysisResult) {
+  return {
+    analysis_scope: analysis.analysisScope,
+    scope_subfield_id: analysis.metadata.scopeSubfieldId ?? "",
+  };
 }
 
 export function downloadRankingCsv(analysis: AnalysisResult): void {
@@ -41,6 +49,7 @@ export function downloadRankingCsv(analysis: AnalysisResult): void {
       category_edition: analysis.category.edition ?? "",
       publication_year: analysis.year,
       document_types: analysis.documentTypes.length ? analysis.documentTypes.join("|") : "all",
+      ...scopeColumns(analysis),
     };
   });
   downloadBlob(serializeCsv(rows, Object.keys(rows[0] ?? {})), "text/csv;charset=utf-8", `${analysisSlug(analysis)}-topic-ranking.csv`);
@@ -55,12 +64,13 @@ export function downloadTrendsCsv(analysis: AnalysisResult, rows: TrendPoint[]):
     category_documents: row.categoryDocuments,
     share: row.share,
     yoy_growth: row.yoyGrowth,
+    ...scopeColumns(analysis),
   }));
   downloadBlob(serializeCsv(data, Object.keys(data[0] ?? {})), "text/csv;charset=utf-8", `${analysisSlug(analysis)}-topic-trends.csv`);
 }
 
 export function downloadJournalsCsv(analysis: AnalysisResult, rows: JournalResultRow[]): void {
-  const data = rows.map((row) => ({ source_id: row.sourceId, journal: row.journal, documents: row.documents, share: row.share, jif: row.jif?.jif ?? "", jif_quartile: row.jif?.quartile ?? "", jif_edition: row.jif?.edition ?? "", jif_provider: row.jif?.provider ?? "" }));
+  const data = rows.map((row) => ({ source_id: row.sourceId, journal: row.journal, documents: row.documents, share: row.share, ...scopeColumns(analysis), jif: row.jif?.jif ?? "", jif_quartile: row.jif?.quartile ?? "", jif_edition: row.jif?.edition ?? "", jif_provider: row.jif?.provider ?? "" }));
   downloadBlob(serializeCsv(data, Object.keys(data[0] ?? {})), "text/csv;charset=utf-8", `${analysisSlug(analysis)}-journals.csv`);
 }
 

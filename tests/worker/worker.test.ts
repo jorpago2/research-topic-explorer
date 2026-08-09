@@ -28,6 +28,7 @@ describe("Worker security boundary", () => {
     const text = await response.text();
     expect(upstreamUrl).toContain("api_key=test-secret-never-return");
     expect(upstreamUrl).toContain("include_xpac=false");
+    expect(upstreamUrl).not.toContain("primary_topic.subfield.id");
     expect(text).not.toContain("test-secret-never-return");
     expect(response.headers.get("Access-Control-Allow-Origin")).toBe(origin);
   });
@@ -35,6 +36,7 @@ describe("Worker security boundary", () => {
     [{ sourceIds: ["bad"], year: 2024, types: [] }, 422],
     [{ sourceIds: ["S1"], year: 2024, types: [], filter: "arbitrary:true" }, 422],
     [{ sourceIds: ["S1"], year: 2024, types: [], url: "https://example.com" }, 422],
+    [{ sourceIds: ["S1"], year: 2024, types: [], subfieldId: "3107|malicious" }, 422],
     [{ sourceIds: Array.from({ length: 101 }, (_, index) => `S${index + 1}`), year: 2024, types: [] }, 422],
   ])("rejects invalid or expansive request bodies", async (body, expectedStatus) => {
     const response = await handleRequest(request("/v1/group-primary-topics", body), env);
@@ -58,6 +60,22 @@ describe("Worker security boundary", () => {
   });
   it("builds deterministic cache material", () => {
     expect(stableStringify({ b: [2, 1], a: "x" })).toBe(stableStringify({ a: "x", b: [2, 1] }));
+  });
+  it.each([
+    ["/v1/group-primary-topics", { sourceIds: ["S1"], year: 2024, types: [], cursor: "*", subfieldId: "3107" }, "primary_topic.subfield.id%3A3107"],
+    ["/v1/group-sources", { sourceIds: ["S1"], year: 2024, types: [], cursor: "*", subfieldId: "3107" }, "primary_topic.subfield.id%3A3107"],
+    ["/v1/group-category-years", { sourceIds: ["S1"], startYear: 2020, endYear: 2024, types: [], subfieldId: "3107" }, "primary_topic.subfield.id%3A3107"],
+    ["/v1/group-topic-years", { sourceIds: ["S1"], topicId: "T1", startYear: 2020, endYear: 2024, types: [], subfieldId: "3107" }, "primary_topic.id%3AT1%2Cprimary_topic.subfield.id%3A3107"],
+    ["/v1/group-topic-cooccurrence", { sourceIds: ["S1"], seedTopicId: "T1", year: 2024, types: [], cursor: "*", subfieldId: "3107" }, "topics.id%3AT1%2Cprimary_topic.subfield.id%3A3107"],
+  ])("applies the validated strict-subfield filter to %s", async (path, body, expectedFilter) => {
+    let upstreamUrl = "";
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      upstreamUrl = String(input);
+      return Response.json({ meta: { count: 0, next_cursor: null }, group_by: [] });
+    }));
+    const response = await handleRequest(request(path, body), env);
+    expect(response.status).toBe(200);
+    expect(upstreamUrl).toContain(expectedFilter);
   });
   it("returns the bounded OpenAlex subfield taxonomy", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => Response.json({

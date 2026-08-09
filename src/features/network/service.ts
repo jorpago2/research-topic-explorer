@@ -17,7 +17,7 @@ import type {
   TopicRankingRow,
   VosviewerData,
 } from "../../types/domain";
-import { CLIENT_SOURCE_CHUNK_SIZE, fetchAllGroupedPages } from "../topic-ranking/service";
+import { CLIENT_SOURCE_CHUNK_SIZE, fetchAllGroupedPages, scopeRequestForAnalysis } from "../topic-ranking/service";
 
 export const NETWORK_NODE_OPTIONS = [20, 30, 40] as const;
 export const DEFAULT_NETWORK_NODES = 30;
@@ -53,6 +53,7 @@ export async function generateTopicNetwork(
   const nodes = analysis.ranking.slice(0, nodeCount);
   if (nodes.length < 2) throw new Error("At least two ranked topics are required to build a network.");
   const sourceChunks = chunkArray(analysis.coverage.uniqueSources.map((source) => source.id).sort(), CLIENT_SOURCE_CHUNK_SIZE);
+  const scopeRequest = scopeRequestForAnalysis(analysis);
   const seeds = nodes.slice(0, -1);
   let completedSeeds = 0;
   onProgress({ completedSeeds, totalSeeds: seeds.length, status: "loading" });
@@ -67,6 +68,7 @@ export async function generateTopicNetwork(
         year: analysis.year,
         types: analysis.documentTypes,
         cursor: "*",
+        ...scopeRequest,
       }, signal);
       chunkGroups.push(result.groups);
     }
@@ -104,7 +106,7 @@ export function buildTopicNetwork(
 }
 
 export function buildVosviewerJson(
-  analysis: Pick<AnalysisResult, "category" | "year" | "topicDetails">,
+  analysis: Pick<AnalysisResult, "category" | "year" | "topicDetails" | "analysisScope">,
   topics: TopicRankingRow[],
   edges: TopicEdge[],
   growthByTopic: Map<string, number | null> = new Map(),
@@ -140,7 +142,7 @@ export function buildVosviewerJson(
     },
     info: {
       title: `${analysis.category.name} — OpenAlex topic network — ${analysis.year}`,
-      description: "Topic co-occurrence network for the selected journal category. Nodes use OpenAlex primary topics; links use all OpenAlex topics attached to matching works.",
+      description: `Topic co-occurrence network for ${analysis.analysisScope === "strict-subfield" ? "works whose primary topic belongs to the selected OpenAlex Subfield" : "all works in the selected journal set"}. Nodes use OpenAlex primary topics; links use all OpenAlex topics attached to matching works.`,
     },
   };
 }

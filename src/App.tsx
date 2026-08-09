@@ -21,12 +21,13 @@ import { TrendsTab } from "./features/trends/TrendsTab";
 import { apiRequest } from "./lib/api/client";
 import { healthSchema, subfieldsSchema } from "./lib/api/schemas";
 import { readUrlState, writeUrlState } from "./lib/url-state";
-import type { AnalysisResult, DocumentTypeMode, JifDataset, ResultsTab, TopicRankingRow } from "./types/domain";
+import type { AnalysisResult, AnalysisScope, DocumentTypeMode, JifDataset, ResultsTab, TopicRankingRow } from "./types/domain";
 
 export default function App() {
   const initial = useMemo(readUrlState, []);
   const [categoryId, setCategoryId] = useState(initial.categoryId);
   const [year, setYear] = useState(initial.year);
+  const [analysisScope, setAnalysisScope] = useState<AnalysisScope>(initial.analysisScope);
   const [documentTypeMode, setDocumentTypeMode] = useState<DocumentTypeMode>(initial.documentTypeMode);
   const [tab, setTab] = useState<ResultsTab>(initial.tab);
   const [networkNodes, setNetworkNodes] = useState<20 | 30 | 40>(initial.networkNodes);
@@ -50,7 +51,7 @@ export default function App() {
       setCategoryId(optics?.id ?? subfieldsQuery.data.subfields[0].id);
     }
   }, [subfieldsQuery.data, categoryId, categoryWasCleared]);
-  useEffect(() => { writeUrlState({ categoryId, year, documentTypeMode, tab, networkNodes }); }, [categoryId, year, documentTypeMode, tab, networkNodes]);
+  useEffect(() => { writeUrlState({ categoryId, year, analysisScope, documentTypeMode, tab, networkNodes }); }, [categoryId, year, analysisScope, documentTypeMode, tab, networkNodes]);
   useEffect(() => () => controllerRef.current?.abort(), []);
 
   const analysisMutation = useMutation({
@@ -59,7 +60,7 @@ export default function App() {
       controllerRef.current?.abort();
       const controller = new AbortController();
       controllerRef.current = controller;
-      return analyzeOpenAlexSubfield(selectedSubfield, year, documentTypeMode, jifDataset, setPhase, controller.signal);
+      return analyzeOpenAlexSubfield(selectedSubfield, year, analysisScope, documentTypeMode, jifDataset, setPhase, controller.signal);
     },
     onSuccess: (result) => { setAnalysis(result); setTab("overview"); },
   });
@@ -72,6 +73,7 @@ export default function App() {
   }
   function changeCategory(value: string) { invalidateAnalysis(); setCategoryWasCleared(!value); setCategoryId(value); }
   function changeYear(value: number) { invalidateAnalysis(); setYear(value); }
+  function changeScope(value: AnalysisScope) { invalidateAnalysis(); setAnalysisScope(value); }
   function changeTypes(value: DocumentTypeMode) { invalidateAnalysis(); setDocumentTypeMode(value); }
   function openMethodology() {
     if (analysis) setTab("methodology");
@@ -103,7 +105,7 @@ export default function App() {
     <>
       <AppHeader onMethodology={openMethodology} serviceAvailable={healthQuery.isSuccess} />
       <Content id="main-content" className="rte-content">
-        <AnalysisForm subfields={subfieldsQuery.data?.subfields ?? []} categoryId={categoryId} year={year} documentTypeMode={documentTypeMode} loading={analysisMutation.isPending} categoryReady={Boolean(selectedSubfield)} onCategoryChange={changeCategory} onYearChange={changeYear} onDocumentTypeChange={changeTypes} onAnalyze={() => analysisMutation.mutate()} />
+        <AnalysisForm subfields={subfieldsQuery.data?.subfields ?? []} categoryId={categoryId} year={year} analysisScope={analysisScope} documentTypeMode={documentTypeMode} loading={analysisMutation.isPending} categoryReady={Boolean(selectedSubfield)} onCategoryChange={changeCategory} onYearChange={changeYear} onAnalysisScopeChange={changeScope} onDocumentTypeChange={changeTypes} onAnalyze={() => analysisMutation.mutate()} />
         <LocalJifLoader dataset={jifDataset} fileName={jifFileName} loading={jifLoading} disabled={jifLoading || analysisMutation.isPending} error={jifError} matchedSources={analysis ? analysis.jifBySourceId.size : null} totalSources={analysis ? analysis.coverage.uniqueSources.length : null} onFile={loadLocalJif} onClear={clearLocalJif} />
 
         {subfieldsQuery.isPending ? <Grid className="rte-notice-grid"><Column sm={4} md={8} lg={16}><Tile><InlineLoading description="Loading the OpenAlex taxonomy…" /></Tile></Column></Grid> : null}
@@ -120,7 +122,7 @@ export default function App() {
               {tab === "trends" ? <TrendsTab analysis={analysis} /> : null}
               {tab === "network" ? <NetworkTab key={`${analysis.metadata.generatedAt}-${networkNodes}`} analysis={analysis} nodeCount={networkNodes} onNodeCountChange={setNetworkNodes} /> : null}
               {tab === "journals" ? <JournalsTab analysis={analysis} /> : null}
-              {tab === "methodology" ? <MethodologyTab analysis={analysis} fallbackMode={documentTypeMode} /> : null}
+              {tab === "methodology" ? <MethodologyTab analysis={analysis} fallbackMode={documentTypeMode} fallbackScope={analysisScope} /> : null}
             </ResultTabs>
           </section>
         ) : (
@@ -129,7 +131,7 @@ export default function App() {
               <Tile>
                 <p className="rte-eyebrow">METHODOLOGY BOUNDARY</p>
                 <h2>OpenAlex classification, separate JIF metadata</h2>
-                <p>OpenAlex Subfields define the journal set by grouping articles and reviews on their primary-topic subfield and Source. Locally loaded JIF metadata does not affect classification or topic ranking.</p>
+                <p>OpenAlex Subfields define the journal set. The analysis scope then determines whether results include every selected-year work from those journals or only works whose primary topic belongs to the selected Subfield. Locally loaded JIF metadata does not affect classification or topic ranking.</p>
               </Tile>
             </Column>
           </Grid>

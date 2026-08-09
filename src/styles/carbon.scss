@@ -182,6 +182,12 @@ code {
   @include type.type-style('heading-05');
 }
 
+.rte-result-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: spacing.$spacing-03;
+}
+
 .rte-generated-time {
   align-self: end;
   @include type.type-style('label-01');

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { Button, Column, ComboBox, Grid, Select, SelectItem } from "@carbon/react";
-import type { DocumentTypeMode, OpenAlexSubfield, TopicHierarchyNode } from "../types/domain";
+import type { AnalysisScope, DocumentTypeMode, OpenAlexSubfield, TopicHierarchyNode } from "../types/domain";
 
 const UNCLASSIFIED_ID = "unclassified";
 const UNCLASSIFIED_DOMAIN: TopicHierarchyNode = { id: UNCLASSIFIED_ID, displayName: "Unclassified domain" };
@@ -11,11 +11,13 @@ interface AnalysisFormProps {
   subfields: OpenAlexSubfield[];
   categoryId: string;
   year: number;
+  analysisScope: AnalysisScope;
   documentTypeMode: DocumentTypeMode;
   loading: boolean;
   categoryReady: boolean;
   onCategoryChange: (value: string) => void;
   onYearChange: (value: number) => void;
+  onAnalysisScopeChange: (value: AnalysisScope) => void;
   onDocumentTypeChange: (value: DocumentTypeMode) => void;
   onAnalyze: () => void;
 }
@@ -136,18 +138,31 @@ export function AnalysisForm(props: AnalysisFormProps) {
           </Column>
         </Grid>
         <Grid className="rte-form-grid">
-          <Column sm={4} md={3} lg={4}>
+          <Column sm={4} md={8} lg={6}>
+            <Select
+              id="analysis-scope"
+              labelText="Analysis scope"
+              helperText={props.analysisScope === "strict-subfield" ? "Only works whose primary topic belongs to this exact OpenAlex subfield" : "All selected-year works from the discovered journals"}
+              value={props.analysisScope}
+              onChange={(event) => props.onAnalysisScopeChange(event.target.value as AnalysisScope)}
+              disabled={props.loading}
+            >
+              <SelectItem value="strict-subfield" text="Strict selected subfield" />
+              <SelectItem value="journal-set" text="Entire journal set" />
+            </Select>
+          </Column>
+          <Column sm={4} md={3} lg={3}>
             <Select id="publication-year" labelText="Publication year" helperText="Independent of the taxonomy" value={String(props.year)} onChange={(event) => props.onYearChange(Number(event.target.value))} disabled={props.loading}>
               {years.map((year) => <SelectItem key={year} value={String(year)} text={String(year)} />)}
             </Select>
           </Column>
-          <Column sm={4} md={5} lg={6}>
+          <Column sm={4} md={5} lg={4}>
             <Select id="document-types" labelText="Document types" helperText="Applied to every result" value={props.documentTypeMode} onChange={(event) => props.onDocumentTypeChange(event.target.value as DocumentTypeMode)} disabled={props.loading}>
               <SelectItem value="article-review" text="Articles + reviews" />
               <SelectItem value="all" text="All OpenAlex work types" />
             </Select>
           </Column>
-          <Column sm={4} md={8} lg={6} className="rte-form-action">
+          <Column sm={4} md={8} lg={3} className="rte-form-action">
             <Button type="submit" size="lg" disabled={props.loading || !props.categoryId || !props.categoryReady}>
               {props.loading ? "Analyzing…" : props.categoryId && !props.categoryReady ? "Loading subfield…" : "Analyze"}
             </Button>

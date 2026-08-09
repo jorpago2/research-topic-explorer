@@ -15,7 +15,10 @@ export function AnalysisSummary({ analysis }: { analysis: AnalysisResult }) {
     <>
       <Grid className="rte-result-heading-grid">
         <Column sm={4} md={6} lg={12}>
-          <Tag>{analysis.category.taxonomy}</Tag>
+          <div className="rte-result-tags">
+            <Tag>{analysis.category.taxonomy}</Tag>
+            <Tag>{analysis.analysisScope === "strict-subfield" ? "Strict subfield" : "Entire journal set"}</Tag>
+          </div>
           <h2 id="result-heading">{analysis.category.name} · {analysis.year}</h2>
           {analysis.metadata.sourceSetTruncated ? <p className="rte-secondary-text">100-journal safety cap applied</p> : null}
         </Column>

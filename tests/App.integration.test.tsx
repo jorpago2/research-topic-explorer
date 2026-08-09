@@ -23,10 +23,15 @@ const subfieldFixtures = [
   { id: "1102", displayName: "Agronomy", field: { id: "11", displayName: "Agricultural and Biological Sciences" }, domain: { id: "1", displayName: "Life Sciences" } },
 ];
 
+const groupedRequestBodies: Array<{ path: string; body: Record<string, unknown> }> = [];
+
 beforeEach(() => {
-  window.history.replaceState(null, "", "/?category=3107&year=2024&types=article,review&tab=overview&nodes=20");
+  groupedRequestBodies.length = 0;
+  window.history.replaceState(null, "", "/?category=3107&year=2024&scope=strict&types=article,review&tab=overview&nodes=20");
   vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
+    const path = new URL(url).pathname;
+    if (path.startsWith("/v1/group-") && init?.body) groupedRequestBodies.push({ path, body: JSON.parse(String(init.body)) as Record<string, unknown> });
     if (url.endsWith("/health")) return envelope({ status: "ok", version: "v1" });
     if (url.endsWith("/v1/openalex-subfields")) return envelope({ subfields: subfieldFixtures });
     if (url.endsWith("/v1/openalex-subfield-sources")) return envelope({ sources: [{ id: "S1", displayName: "Optics Express", issnL: "1094-4087", issns: ["1094-4087"], type: "journal", worksCount: 1000 }], nextCursor: null });
@@ -55,10 +60,12 @@ describe("application workflow", () => {
     const domainSelect = await screen.findByRole("combobox", { name: "OpenAlex domain" });
     const fieldSelect = screen.getByRole("combobox", { name: "OpenAlex field" });
     const subfieldInput = screen.getByRole("combobox", { name: "OpenAlex subfield" });
+    const scopeSelect = screen.getByRole("combobox", { name: "Analysis scope" });
     await waitFor(() => {
       expect(domainSelect).toHaveValue("3");
       expect(fieldSelect).toHaveValue("31");
       expect(subfieldInput).toHaveValue("Optics");
+      expect(scopeSelect).toHaveValue("strict-subfield");
     });
 
     fireEvent.change(domainSelect, { target: { value: "1" } });
@@ -89,8 +96,10 @@ describe("application workflow", () => {
     expect(await screen.findByText(/1 journal records/)).toBeInTheDocument();
     fireEvent.click(analyzeButton);
     expect(await screen.findByRole("heading", { name: "Optics · 2024" })).toBeInTheDocument();
+    expect(screen.getByText("Strict subfield")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Metasurfaces/ })).toBeInTheDocument();
     expect(window.location.search).toContain("category=3107");
+    expect(window.location.search).toContain("scope=strict");
 
     fireEvent.click(screen.getByRole("tab", { name: "Trends" }));
     expect(await screen.findByRole("heading", { name: "Topic trends" })).toBeInTheDocument();
@@ -107,5 +116,8 @@ describe("application workflow", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: "Methodology" }));
     expect(screen.getByText(/not official JCR analytics/)).toBeInTheDocument();
+    for (const path of ["/v1/group-primary-topics", "/v1/group-category-years", "/v1/group-topic-years", "/v1/group-sources", "/v1/group-topic-cooccurrence"]) {
+      expect(groupedRequestBodies.some((request) => request.path === path && request.body.subfieldId === "3107"), `${path} should preserve strict scope`).toBe(true);
+    }
   });
 });

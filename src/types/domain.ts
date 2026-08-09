@@ -1,4 +1,5 @@
 export type DocumentTypeMode = "article-review" | "all";
+export type AnalysisScope = "journal-set" | "strict-subfield";
 export type ResultsTab = "overview" | "trends" | "network" | "journals" | "methodology";
 
 export interface CategoryIndexEntry {
@@ -170,6 +171,8 @@ export interface AnalysisMetadata {
   topicCountingMethod: "openalex-primary-topic";
   networkMethod: "openalex-topic-cooccurrence";
   includeXpac: false;
+  analysisScope: AnalysisScope;
+  scopeSubfieldId?: string;
   journalSetMethod?: "openalex-primary-subfield-source-groups";
   sourceSetTruncated?: boolean;
   jifEdition?: string;
@@ -178,6 +181,7 @@ export interface AnalysisMetadata {
 export interface AnalysisResult {
   category: CategoryDefinition;
   year: number;
+  analysisScope: AnalysisScope;
   documentTypeMode: DocumentTypeMode;
   documentTypes: string[];
   coverage: CoverageReport;
