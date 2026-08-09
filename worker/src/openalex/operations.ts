@@ -366,7 +366,11 @@ export async function groupTopicActors(
   });
   const groups = (response.group_by ?? []).flatMap((group) => {
     const rawId = String(group.key);
-    const id = dimension === "country" ? rawId.toUpperCase() : normalizeOpenAlexId(rawId, "I");
+    // OpenAlex represents grouped country keys as country entity URLs
+    // (for example, https://openalex.org/countries/ES), not only as ISO codes.
+    const id = dimension === "country"
+      ? rawId.replace(/^https?:\/\/openalex\.org\/countries\//i, "").toUpperCase()
+      : normalizeOpenAlexId(rawId, "I");
     if (!id || (dimension === "country" && !/^[A-Z]{2}$/.test(id))) return [];
     return [{ id, displayName: String(group.key_display_name ?? id), count: Math.max(0, Number(group.count) || 0) }];
   });

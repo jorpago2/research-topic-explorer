@@ -148,14 +148,17 @@ describe("Worker security boundary", () => {
     let upstreamUrl = "";
     vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
       upstreamUrl = String(input);
-      return Response.json({ meta: { count: 20 }, group_by: [{ key: dimension === "country" ? "ES" : "https://openalex.org/I1", key_display_name: dimension === "country" ? "ES" : "University", count: 12 }] });
+      return Response.json({ meta: { count: 20 }, group_by: [{ key: dimension === "country" ? "https://openalex.org/countries/ES" : "https://openalex.org/I1", key_display_name: dimension === "country" ? "Spain" : "University", count: 12 }] });
     }));
     const response = await handleRequest(request("/v1/topic-actors", { sourceIds: ["S1"], topicId: "T1", startYear: 2022, endYear: 2024, types: [], dimension, subfieldId: "2208" }), env);
     expect(response.status).toBe(200);
     expect(upstreamUrl).toContain(`group_by=${encodeURIComponent(expectedGroup)}`);
     expect(upstreamUrl).toContain("per_page=100");
     expect(upstreamUrl).not.toContain("cursor=");
-    expect(await response.json()).toMatchObject({ ok: true, data: { groups: [{ count: 12 }], truncated: false } });
+    expect(await response.json()).toMatchObject({
+      ok: true,
+      data: { groups: [{ id: dimension === "country" ? "ES" : "I1", count: 12 }], truncated: false },
+    });
   });
   it("rejects unsupported actor dimensions and arbitrary impact controls", async () => {
     expect((await handleRequest(request("/v1/topic-actors", { sourceIds: ["S1"], topicId: "T1", startYear: 2022, endYear: 2024, types: [], dimension: "author" }), env)).status).toBe(422);
