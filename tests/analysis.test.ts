@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { buildCoverageReport, buildTopicRanking, calculateShare, calculateYoYGrowth, chunkArray, mergeGroupedCounts, normalizeOpenAlexId, slugifyExportFilename } from "../src/lib/analysis";
 import { deduplicateIssns, normalizeIssn } from "../src/lib/issn";
+import { buildPeriodComparison } from "../src/features/trends/service";
+import type { TrendPoint } from "../src/types/domain";
 
 describe("ISSN utilities", () => {
   it("normalizes valid ISSNs and preserves X check digits", () => {
@@ -45,5 +47,15 @@ describe("analysis utilities", () => {
     expect(coverage.resolvedJournals).toBe(1);
     expect(coverage.unresolvedJournals).toBe(1);
     expect(coverage.rows[1].resolved).toBe(false);
+  });
+  it("compares equal periods using annualized counts, shares, and selected-topic ranks", () => {
+    const points: TrendPoint[] = [
+      ...[2019, 2020, 2021, 2022, 2023, 2024].map((year, index) => ({ topicId: "T1", topic: "One", year, documents: 10 + index * 2, categoryDocuments: 100, share: (10 + index * 2) / 100, yoyGrowth: null })),
+      ...[2019, 2020, 2021, 2022, 2023, 2024].map((year, index) => ({ topicId: "T2", topic: "Two", year, documents: 20 - index, categoryDocuments: 100, share: (20 - index) / 100, yoyGrowth: null })),
+    ];
+    const comparison = buildPeriodComparison(points, 2024, 3);
+    expect(comparison.periodA).toEqual({ startYear: 2019, endYear: 2021 });
+    expect(comparison.periodB).toEqual({ startYear: 2022, endYear: 2024 });
+    expect(comparison.rows.find((row) => row.topicId === "T1")).toMatchObject({ periodAAnnualAverage: 12, periodBAnnualAverage: 18, annualRateChange: 0.5, rankA: 2, rankB: 1, rankChange: 1 });
   });
 });

@@ -1,13 +1,21 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Button, Column, Grid, InlineLoading, InlineNotification, Select, SelectItem, Tile } from "@carbon/react";
-import type { AnalysisResult, VosviewerData } from "../../types/domain";
+import type { AnalysisResult, NetworkNormalization, VosviewerData } from "../../types/domain";
 import { downloadVosviewerJson } from "../export/download";
-import { DEFAULT_NETWORK_NODES, generateTopicNetwork, NETWORK_NODE_OPTIONS, type NetworkProgress } from "./service";
+import { DEFAULT_NETWORK_NODES, generateTopicNetwork, NETWORK_NODE_OPTIONS, NETWORK_NORMALIZATION_OPTIONS, normalizationLabel, type NetworkProgress } from "./service";
 import { VisualizationErrorBoundary } from "./VisualizationErrorBoundary";
 
 const VosviewerNetwork = lazy(() => import("./VosviewerNetwork"));
 
-export function NetworkTab({ analysis, nodeCount = DEFAULT_NETWORK_NODES, onNodeCountChange }: { analysis: AnalysisResult; nodeCount?: 20 | 30 | 40; onNodeCountChange: (count: 20 | 30 | 40) => void }) {
+interface NetworkTabProps {
+  analysis: AnalysisResult;
+  nodeCount?: 20 | 30 | 40;
+  normalization: NetworkNormalization;
+  onNodeCountChange: (count: 20 | 30 | 40) => void;
+  onNormalizationChange: (normalization: NetworkNormalization) => void;
+}
+
+export function NetworkTab({ analysis, nodeCount = DEFAULT_NETWORK_NODES, normalization, onNodeCountChange, onNormalizationChange }: NetworkTabProps) {
   const [data, setData] = useState<VosviewerData | null>(null);
   const [progress, setProgress] = useState<NetworkProgress>({ completedSeeds: 0, totalSeeds: 0, status: "idle" });
   const [error, setError] = useState<string | null>(null);
@@ -21,7 +29,7 @@ export function NetworkTab({ analysis, nodeCount = DEFAULT_NETWORK_NODES, onNode
     setError(null);
     setData(null);
     try {
-      const network = await generateTopicNetwork(analysis, nodeCount, setProgress, controller.signal);
+      const network = await generateTopicNetwork(analysis, nodeCount, normalization, setProgress, controller.signal);
       setData(network);
     } catch (cause) {
       if (cause instanceof DOMException && cause.name === "AbortError") {
@@ -42,6 +50,12 @@ export function NetworkTab({ analysis, nodeCount = DEFAULT_NETWORK_NODES, onNode
     setError(null);
     onNodeCountChange(value);
   }
+  function changeNormalization(value: NetworkNormalization) {
+    cancel();
+    setData(null);
+    setError(null);
+    onNormalizationChange(value);
+  }
 
   const loading = progress.status === "loading" || progress.status === "layout";
   return (
@@ -52,7 +66,7 @@ export function NetworkTab({ analysis, nodeCount = DEFAULT_NETWORK_NODES, onNode
             <div className="rte-section-heading">
               <div><h3 id="network-heading">Topic co-occurrence network</h3><p>Nodes are ranked primary topics. Links count works where both topics occur in the full OpenAlex topic array.</p></div>
               <div className="rte-button-group">
-                {data ? <Button kind="secondary" size="md" type="button" onClick={() => downloadVosviewerJson(analysis, data)}>Download JSON</Button> : null}
+                {data ? <Button kind="secondary" size="md" type="button" onClick={() => downloadVosviewerJson(analysis, data, normalization)}>Download JSON</Button> : null}
                 {loading ? <Button kind="tertiary" size="md" type="button" onClick={cancel}>Cancel</Button> : <Button size="md" type="button" onClick={generate} disabled={analysis.ranking.length < 2}>{data ? "Regenerate" : "Generate network"}</Button>}
               </div>
             </div>
@@ -62,7 +76,12 @@ export function NetworkTab({ analysis, nodeCount = DEFAULT_NETWORK_NODES, onNode
                   {NETWORK_NODE_OPTIONS.map((value) => <SelectItem key={value} value={String(value)} text={`Top ${value}`} />)}
                 </Select>
               </Column>
-              <Column sm={4} md={5} lg={12} className="rte-control-note"><p>Weak links below 5 co-occurrences are removed; at most 250 links are rendered.</p></Column>
+              <Column sm={4} md={5} lg={5}>
+                <Select id="network-normalization" labelText="Link normalization" helperText="Controls link strength, not which works are included" value={normalization} onChange={(event) => changeNormalization(event.target.value as NetworkNormalization)} disabled={loading}>
+                  {NETWORK_NORMALIZATION_OPTIONS.map((option) => <SelectItem key={option.value} value={option.value} text={option.label} />)}
+                </Select>
+              </Column>
+              <Column sm={4} md={8} lg={7} className="rte-control-note"><p>Links require at least 5 shared works. Current weighting: {normalizationLabel(normalization)}.</p></Column>
             </Grid>
             {loading ? <InlineLoading description={progress.status === "layout" ? "Calculating deterministic layout…" : `Querying topic relationships ${progress.completedSeeds} / ${progress.totalSeeds}`} /> : error ? <InlineNotification kind="error" lowContrast hideCloseButton title="Network generation failed" subtitle={error} /> : data ? (
               <div className="vosviewer-frame">

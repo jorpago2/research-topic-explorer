@@ -12,6 +12,7 @@ import { mapWithConcurrency } from "../../lib/concurrency";
 import type {
   AnalysisResult,
   GroupRow,
+  NetworkNormalization,
   TopicDetails,
   TopicEdge,
   TopicRankingRow,
@@ -24,6 +25,13 @@ export const DEFAULT_NETWORK_NODES = 30;
 export const MIN_EDGE_STRENGTH = 5;
 export const MAX_NETWORK_EDGES = 250;
 export const NETWORK_CONCURRENCY = 2;
+
+export const NETWORK_NORMALIZATION_OPTIONS: Array<{ value: NetworkNormalization; label: string }> = [
+  { value: "association-strength", label: "Association strength (VOS)" },
+  { value: "cosine", label: "Cosine similarity" },
+  { value: "jaccard", label: "Jaccard index" },
+  { value: "raw", label: "Raw co-occurrence" },
+];
 
 interface LayoutNode extends SimulationNodeDatum {
   id: string;
@@ -44,6 +52,7 @@ export interface NetworkProgress {
 export async function generateTopicNetwork(
   analysis: AnalysisResult,
   nodeCount: number,
+  normalization: NetworkNormalization,
   onProgress: (progress: NetworkProgress) => void,
   signal?: AbortSignal,
 ): Promise<VosviewerData> {
@@ -54,12 +63,13 @@ export async function generateTopicNetwork(
   if (nodes.length < 2) throw new Error("At least two ranked topics are required to build a network.");
   const sourceChunks = chunkArray(analysis.coverage.uniqueSources.map((source) => source.id).sort(), CLIENT_SOURCE_CHUNK_SIZE);
   const scopeRequest = scopeRequestForAnalysis(analysis);
-  const seeds = nodes.slice(0, -1);
+  const seeds = nodes;
   let completedSeeds = 0;
   onProgress({ completedSeeds, totalSeeds: seeds.length, status: "loading" });
 
   const groupsBySeed = await mapWithConcurrency(seeds, NETWORK_CONCURRENCY, async (seed) => {
     const chunkGroups: GroupRow[][] = [];
+    let occurrenceCount = 0;
     for (const sourceIds of sourceChunks) {
       if (signal?.aborted) throw new DOMException("The operation was aborted.", "AbortError");
       const result = await fetchAllGroupedPages("/v1/group-topic-cooccurrence", {
@@ -71,15 +81,18 @@ export async function generateTopicNetwork(
         ...scopeRequest,
       }, signal);
       chunkGroups.push(result.groups);
+      occurrenceCount += result.documentCount;
     }
     completedSeeds += 1;
     onProgress({ completedSeeds, totalSeeds: seeds.length, status: "loading" });
-    return [seed.topicId, mergeGroupedCounts(chunkGroups)] as const;
+    return [seed.topicId, { groups: mergeGroupedCounts(chunkGroups), occurrenceCount }] as const;
   });
 
   onProgress({ completedSeeds, totalSeeds: seeds.length, status: "layout" });
-  const edges = buildTopicNetwork(nodes, new Map(groupsBySeed), MIN_EDGE_STRENGTH, MAX_NETWORK_EDGES);
-  const data = buildVosviewerJson(analysis, nodes, edges);
+  const grouped = new Map(groupsBySeed.map(([topicId, value]) => [topicId, value.groups]));
+  const occurrences = new Map(groupsBySeed.map(([topicId, value]) => [topicId, value.occurrenceCount]));
+  const edges = buildTopicNetwork(nodes, grouped, occurrences, normalization, MIN_EDGE_STRENGTH, MAX_NETWORK_EDGES);
+  const data = buildVosviewerJson(analysis, nodes, edges, normalization);
   onProgress({ completedSeeds, totalSeeds: seeds.length, status: "ready" });
   return data;
 }
@@ -87,6 +100,8 @@ export async function generateTopicNetwork(
 export function buildTopicNetwork(
   topics: TopicRankingRow[],
   groupsBySeed: Map<string, GroupRow[]>,
+  occurrencesByTopic: Map<string, number>,
+  normalization: NetworkNormalization,
   minimumStrength = MIN_EDGE_STRENGTH,
   maximumEdges = MAX_NETWORK_EDGES,
 ): TopicEdge[] {
@@ -97,7 +112,12 @@ export function buildTopicNetwork(
     for (const group of groupsBySeed.get(sourceId) ?? []) {
       const targetIndex = indexById.get(group.id);
       if (targetIndex == null || targetIndex <= sourceIndex || group.count < minimumStrength) continue;
-      edges.push({ sourceId, targetId: group.id, strength: group.count });
+      edges.push({
+        sourceId,
+        targetId: group.id,
+        strength: normalizedStrength(group.count, occurrencesByTopic.get(sourceId) ?? 0, occurrencesByTopic.get(group.id) ?? 0, normalization),
+        cooccurrences: group.count,
+      });
     }
   }
   return edges
@@ -109,6 +129,7 @@ export function buildVosviewerJson(
   analysis: Pick<AnalysisResult, "category" | "year" | "topicDetails" | "analysisScope">,
   topics: TopicRankingRow[],
   edges: TopicEdge[],
+  normalization: NetworkNormalization,
   growthByTopic: Map<string, number | null> = new Map(),
 ): VosviewerData {
   const coordinates = deterministicLayout(topics, edges);
@@ -142,7 +163,7 @@ export function buildVosviewerJson(
     },
     info: {
       title: `${analysis.category.name} — OpenAlex topic network — ${analysis.year}`,
-      description: `Topic co-occurrence network for ${analysis.analysisScope === "strict-subfield" ? "works whose primary topic belongs to the selected OpenAlex Subfield" : "all works in the selected journal set"}. Nodes use OpenAlex primary topics; links use all OpenAlex topics attached to matching works.`,
+      description: `Topic co-occurrence network for ${analysis.analysisScope === "strict-subfield" ? "works whose primary topic belongs to the selected OpenAlex Subfield" : "all works in the selected journal set"}. Nodes use OpenAlex primary topics; links use all OpenAlex topics attached to matching works. Link normalization: ${normalizationLabel(normalization)}.`,
     },
   };
 }
@@ -166,16 +187,33 @@ function deterministicLayout(topics: TopicRankingRow[], edges: TopicEdge[]): Map
     x: Math.cos(index * goldenAngle) * Math.sqrt(index + 1) * 12,
     y: Math.sin(index * goldenAngle) * Math.sqrt(index + 1) * 12,
   }));
-  const links: LayoutLink[] = edges.map((edge) => ({ source: edge.sourceId, target: edge.targetId, strength: edge.strength }));
+  const maximumStrength = Math.max(...edges.map((edge) => edge.strength), 1e-12);
+  const links: LayoutLink[] = edges.map((edge) => ({ source: edge.sourceId, target: edge.targetId, strength: edge.strength / maximumStrength }));
   const simulation = forceSimulation(nodes)
     .randomSource(seededRandom(0x5eed))
-    .force("link", forceLink<LayoutNode, LayoutLink>(links).id((node) => node.id).distance(55).strength((link) => Math.min(0.9, 0.15 + link.strength / 100)))
+    .force("link", forceLink<LayoutNode, LayoutLink>(links).id((node) => node.id).distance(55).strength((link) => Math.min(0.9, 0.15 + link.strength * 0.75)))
     .force("charge", forceManyBody().strength(-85))
     .force("collision", forceCollide(14))
     .force("center", forceCenter(0, 0))
     .stop();
   for (let index = 0; index < 320; index += 1) simulation.tick();
   return new Map(nodes.map((node) => [node.id, { x: finite(node.x ?? 0), y: finite(node.y ?? 0) }]));
+}
+
+export function normalizedStrength(cooccurrences: number, sourceOccurrences: number, targetOccurrences: number, normalization: NetworkNormalization): number {
+  if (cooccurrences <= 0 || sourceOccurrences <= 0 || targetOccurrences <= 0) return 0;
+  let value: number;
+  switch (normalization) {
+    case "association-strength": value = cooccurrences / (sourceOccurrences * targetOccurrences); break;
+    case "cosine": value = cooccurrences / Math.sqrt(sourceOccurrences * targetOccurrences); break;
+    case "jaccard": value = cooccurrences / (sourceOccurrences + targetOccurrences - cooccurrences); break;
+    case "raw": value = cooccurrences; break;
+  }
+  return Number.isFinite(value) ? Number(value.toPrecision(12)) : 0;
+}
+
+export function normalizationLabel(normalization: NetworkNormalization): string {
+  return NETWORK_NORMALIZATION_OPTIONS.find((option) => option.value === normalization)?.label ?? normalization;
 }
 
 function seededRandom(seed: number): () => number {

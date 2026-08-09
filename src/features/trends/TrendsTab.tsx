@@ -3,8 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Accordion, AccordionItem, Button, Checkbox, Column, Grid, InlineLoading, InlineNotification, RadioButton, RadioButtonGroup, Select, SelectItem, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Tile } from "@carbon/react";
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { AnalysisResult } from "../../types/domain";
-import { downloadTrendsCsv } from "../export/download";
-import { DEFAULT_TREND_TOPIC_COUNT, loadTrends, MAX_TREND_TOPICS } from "./service";
+import { downloadPeriodComparisonCsv, downloadTrendsCsv } from "../export/download";
+import { buildPeriodComparison, COMPARISON_PERIOD_OPTIONS, DEFAULT_TREND_TOPIC_COUNT, loadTrends, MAX_TREND_TOPICS } from "./service";
 
 const chartColors = Array.from({ length: 12 }, (_, index) => `var(--rte-chart-${index + 1})`);
 
@@ -12,11 +12,14 @@ export function TrendsTab({ analysis }: { analysis: AnalysisResult }) {
   const defaultStart = Math.max(1800, analysis.year - 4);
   const [startYear, setStartYear] = useState(defaultStart);
   const [metric, setMetric] = useState<"documents" | "share">("documents");
+  const [comparisonYears, setComparisonYears] = useState<2 | 3 | 5>(3);
   const candidates = analysis.ranking.slice(0, MAX_TREND_TOPICS);
   const [selectedIds, setSelectedIds] = useState(() => candidates.slice(0, DEFAULT_TREND_TOPIC_COUNT).map((topic) => topic.topicId));
+  const comparisonStartYear = analysis.year - comparisonYears * 2 + 1;
+  const queryStartYear = Math.min(startYear, comparisonStartYear);
   const query = useQuery({
-    queryKey: ["trends", analysis.category.id, analysis.year, analysis.documentTypeMode, analysis.coverage.uniqueSources.map((source) => source.id), startYear, selectedIds],
-    queryFn: ({ signal }) => loadTrends(analysis, startYear, analysis.year, selectedIds, signal),
+    queryKey: ["trends", analysis.category.id, analysis.year, analysis.documentTypeMode, analysis.analysisScope, analysis.coverage.uniqueSources.map((source) => source.id), queryStartYear, selectedIds],
+    queryFn: ({ signal }) => loadTrends(analysis, queryStartYear, analysis.year, selectedIds, signal),
     enabled: selectedIds.length > 0,
   });
   const chartData = useMemo(() => {
@@ -29,6 +32,7 @@ export function TrendsTab({ analysis }: { analysis: AnalysisResult }) {
     });
   }, [query.data, analysis.year, startYear, metric]);
   const growth = useMemo(() => (query.data ?? []).filter((point) => point.year === analysis.year && point.yoyGrowth !== null).sort((a, b) => (b.yoyGrowth ?? 0) - (a.yoyGrowth ?? 0)), [query.data, analysis.year]);
+  const comparison = useMemo(() => query.data ? buildPeriodComparison(query.data, analysis.year, comparisonYears) : null, [query.data, analysis.year, comparisonYears]);
 
   function toggleTopic(topicId: string) {
     setSelectedIds((current) => current.includes(topicId) ? current.filter((id) => id !== topicId) : current.length < MAX_TREND_TOPICS ? [...current, topicId] : current);
@@ -43,18 +47,23 @@ export function TrendsTab({ analysis }: { analysis: AnalysisResult }) {
               {query.data ? <Button kind="secondary" size="md" type="button" onClick={() => downloadTrendsCsv(analysis, query.data!)}>Download CSV</Button> : null}
             </div>
             <Grid narrow className="rte-control-grid">
-              <Column sm={4} md={3} lg={4}>
+              <Column sm={4} md={4} lg={3}>
                 <Select id="trend-start-year" labelText="Start year" value={String(startYear)} onChange={(event) => setStartYear(Number(event.target.value))}>
                   {Array.from({ length: Math.min(15, analysis.year - 1799) }, (_, index) => analysis.year - 14 + index).filter((candidateYear) => candidateYear >= 1800).map((candidateYear) => <SelectItem key={candidateYear} value={String(candidateYear)} text={String(candidateYear)} />)}
                 </Select>
               </Column>
-              <Column sm={4} md={5} lg={6}>
+              <Column sm={4} md={4} lg={4}>
                 <RadioButtonGroup name="trend-metric" legendText="Metric" orientation="horizontal" valueSelected={metric} onChange={(selection) => setMetric(selection as "documents" | "share")}>
                   <RadioButton id="metric-documents" value="documents" labelText="Documents" />
                   <RadioButton id="metric-share" value="share" labelText="Share of category" />
                 </RadioButtonGroup>
               </Column>
-              <Column sm={4} md={8} lg={6}>
+              <Column sm={4} md={4} lg={3}>
+                <Select id="comparison-years" labelText="Comparison periods" helperText="Two adjacent periods of equal length" value={String(comparisonYears)} onChange={(event) => setComparisonYears(Number(event.target.value) as 2 | 3 | 5)}>
+                  {COMPARISON_PERIOD_OPTIONS.map((years) => <SelectItem key={years} value={String(years)} text={`${years} years each`} />)}
+                </Select>
+              </Column>
+              <Column sm={4} md={4} lg={6}>
                 <Accordion align="start">
                   <AccordionItem title={`${selectedIds.length} topics selected`}>
                     <div className="rte-checkbox-list">
@@ -81,6 +90,31 @@ export function TrendsTab({ analysis }: { analysis: AnalysisResult }) {
           </Tile>
         </Column>
       </Grid>
+      {comparison ? (
+        <Grid className="rte-panel-grid">
+          <Column sm={4} md={8} lg={16}>
+            <Tile className="rte-section-tile rte-table-tile">
+              <div className="rte-section-heading">
+                <div><h3 id="period-comparison-heading">Period comparison</h3><p>Annualized output and corpus share for the selected Topics. Rankings are calculated within this selection.</p></div>
+                <Button kind="secondary" size="md" type="button" onClick={() => downloadPeriodComparisonCsv(analysis, comparison)}>Download comparison CSV</Button>
+              </div>
+              <div className="rte-table-scroll">
+                <Table useZebraStyles size="lg" aria-label="Topic comparison between two periods">
+                  <TableHead><TableRow><TableHeader>Topic</TableHeader><TableHeader>{comparison.periodA.startYear}–{comparison.periodA.endYear}<br />avg/year</TableHeader><TableHeader>{comparison.periodB.startYear}–{comparison.periodB.endYear}<br />avg/year</TableHeader><TableHeader>Annual-rate change</TableHeader><TableHeader>Share change</TableHeader><TableHeader>Rank change</TableHeader></TableRow></TableHead>
+                  <TableBody>{comparison.rows.map((row) => <TableRow key={row.topicId}>
+                    <TableCell>{row.topic}</TableCell>
+                    <TableCell>{row.periodAAnnualAverage.toFixed(1)}</TableCell>
+                    <TableCell>{row.periodBAnnualAverage.toFixed(1)}</TableCell>
+                    <TableCell>{row.annualRateChange === null ? row.periodBAnnualAverage > 0 ? "New in selection" : "—" : `${row.annualRateChange >= 0 ? "+" : ""}${(row.annualRateChange * 100).toFixed(1)}%`}</TableCell>
+                    <TableCell>{`${((row.periodBShare - row.periodAShare) * 100).toFixed(2)} pp`}</TableCell>
+                    <TableCell>{row.rankChange === 0 ? "No change" : `${row.rankChange > 0 ? "+" : ""}${row.rankChange}`}</TableCell>
+                  </TableRow>)}</TableBody>
+                </Table>
+              </div>
+            </Tile>
+          </Column>
+        </Grid>
+      ) : null}
       {growth.length ? (
         <Grid className="rte-panel-grid">
           <Column sm={4} md={8} lg={16}>

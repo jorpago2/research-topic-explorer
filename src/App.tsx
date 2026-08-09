@@ -21,7 +21,7 @@ import { TrendsTab } from "./features/trends/TrendsTab";
 import { apiRequest } from "./lib/api/client";
 import { healthSchema, subfieldsSchema } from "./lib/api/schemas";
 import { readUrlState, writeUrlState } from "./lib/url-state";
-import type { AnalysisResult, AnalysisScope, DocumentTypeMode, JifDataset, ResultsTab, TopicRankingRow } from "./types/domain";
+import type { AnalysisResult, AnalysisScope, DocumentTypeMode, JifDataset, NetworkNormalization, ResultsTab, TopicRankingRow } from "./types/domain";
 
 export default function App() {
   const initial = useMemo(readUrlState, []);
@@ -31,6 +31,7 @@ export default function App() {
   const [documentTypeMode, setDocumentTypeMode] = useState<DocumentTypeMode>(initial.documentTypeMode);
   const [tab, setTab] = useState<ResultsTab>(initial.tab);
   const [networkNodes, setNetworkNodes] = useState<20 | 30 | 40>(initial.networkNodes);
+  const [networkNormalization, setNetworkNormalization] = useState<NetworkNormalization>(initial.networkNormalization);
   const [phase, setPhase] = useState<AnalysisPhase>("resolving");
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [jifDataset, setJifDataset] = useState<JifDataset | null>(null);
@@ -51,7 +52,7 @@ export default function App() {
       setCategoryId(optics?.id ?? subfieldsQuery.data.subfields[0].id);
     }
   }, [subfieldsQuery.data, categoryId, categoryWasCleared]);
-  useEffect(() => { writeUrlState({ categoryId, year, analysisScope, documentTypeMode, tab, networkNodes }); }, [categoryId, year, analysisScope, documentTypeMode, tab, networkNodes]);
+  useEffect(() => { writeUrlState({ categoryId, year, analysisScope, documentTypeMode, tab, networkNodes, networkNormalization }); }, [categoryId, year, analysisScope, documentTypeMode, tab, networkNodes, networkNormalization]);
   useEffect(() => () => controllerRef.current?.abort(), []);
 
   const analysisMutation = useMutation({
@@ -120,7 +121,7 @@ export default function App() {
             <ResultTabs active={tab} onChange={setTab}>
               {tab === "overview" ? <OverviewTab analysis={analysis} onSelectTopic={setSelectedTopic} /> : null}
               {tab === "trends" ? <TrendsTab analysis={analysis} /> : null}
-              {tab === "network" ? <NetworkTab key={`${analysis.metadata.generatedAt}-${networkNodes}`} analysis={analysis} nodeCount={networkNodes} onNodeCountChange={setNetworkNodes} /> : null}
+              {tab === "network" ? <NetworkTab key={`${analysis.metadata.generatedAt}-${networkNodes}-${networkNormalization}`} analysis={analysis} nodeCount={networkNodes} normalization={networkNormalization} onNodeCountChange={setNetworkNodes} onNormalizationChange={setNetworkNormalization} /> : null}
               {tab === "journals" ? <JournalsTab analysis={analysis} /> : null}
               {tab === "methodology" ? <MethodologyTab analysis={analysis} fallbackMode={documentTypeMode} fallbackScope={analysisScope} /> : null}
             </ResultTabs>
@@ -137,7 +138,7 @@ export default function App() {
           </Grid>
         )}
       </Content>
-      <TopicDetailDialog topic={selectedTopic} details={selectedTopic ? analysis?.topicDetails.get(selectedTopic.topicId) : undefined} onClose={() => setSelectedTopic(null)} />
+      <TopicDetailDialog topic={selectedTopic} analysis={analysis} details={selectedTopic ? analysis?.topicDetails.get(selectedTopic.topicId) : undefined} onClose={() => setSelectedTopic(null)} />
       <Footer />
     </>
   );

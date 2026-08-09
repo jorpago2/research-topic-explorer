@@ -17,6 +17,7 @@ test.beforeEach(async ({ page }) => {
     else if (path === "/v1/openalex-subfield-sources") data = { sources: [{ id: "S1", displayName: "Optics Express", issnL: "1094-4087", issns: ["1094-4087"], type: "journal", worksCount: 1000 }], nextCursor: null };
     else if (path === "/v1/group-primary-topics") data = { meta: { documentCount: 100, nextCursor: null }, groups: [{ id: "T1", displayName: "Metasurfaces", count: 60 }, { id: "T2", displayName: "Integrated photonics", count: 40 }] };
     else if (path === "/v1/topic-details") data = { topics: ["T1", "T2"].map((id, index) => ({ id, displayName: index ? "Integrated photonics" : "Metasurfaces", description: "Fixture", keywords: ["optics"], subfield: { id: "sub1", displayName: "Optics" }, field: { id: "field1", displayName: "Physics" }, domain: { id: "domain1", displayName: "Physical Sciences" } })) };
+    else if (path === "/v1/topic-evidence") data = { selectionMethod: "most-cited-primary-topic-matches", works: [{ id: "W1", title: "Experimental metasurface evidence", doi: "https://doi.org/10.1000/example", publicationYear: 2024, publicationDate: "2024-06-01", citedByCount: 42, source: { id: "S1", displayName: "Optics Express" }, primaryTopic: { id: "T1", displayName: "Metasurfaces", score: 0.92 }, topics: [{ id: "T1", displayName: "Metasurfaces", score: 0.92 }] }] };
     else if (path === "/v1/group-category-years") data = { meta: { documentCount: 300, nextCursor: null }, groups: [2020, 2021, 2022, 2023, 2024].map((year) => ({ id: String(year), displayName: String(year), count: 100 })) };
     else if (path === "/v1/group-topic-years") data = { meta: { documentCount: 100, nextCursor: null }, groups: [2020, 2021, 2022, 2023, 2024].map((year, index) => ({ id: String(year), displayName: String(year), count: 20 + index * 5 })) };
     else if (path === "/v1/group-sources") data = { meta: { documentCount: 100, nextCursor: null }, groups: [{ id: "S1", displayName: "Optics Express", count: 100 }] };
@@ -73,16 +74,23 @@ test("runs the shareable analysis workflow under a project base path", async ({ 
   await expect(page.getByText("Metasurfaces", { exact: true }).first()).toBeVisible();
   await expect(page).toHaveURL(/category=3107.*year=2024/);
 
+  await page.getByRole("button", { name: /Metasurfaces/ }).click();
+  await expect(page.getByRole("heading", { name: "Evidence publications" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Experimental metasurface evidence" })).toBeVisible();
+  await page.getByRole("button", { name: "Close" }).click();
+
   const rankingDownload = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download CSV" }).first().click();
   expect((await rankingDownload).suggestedFilename()).toBe("optics-2024-strict-subfield-topic-ranking.csv");
 
   await page.getByRole("tab", { name: "Trends" }).click();
   await expect(page.getByRole("heading", { name: "Topic trends" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Period comparison" })).toBeVisible();
   await page.getByRole("tab", { name: "Journals" }).click();
   await expect(page.getByText("Optics Express", { exact: true }).last()).toBeVisible();
   await expect(page.locator('td[data-label="JIF"]')).toHaveText("4.8");
   await page.getByRole("tab", { name: "Network" }).click();
+  await expect(page.getByLabel("Link normalization")).toHaveValue("association-strength");
   await page.getByRole("button", { name: "Generate network" }).click();
   await expect(page.locator(".vosviewer-frame")).toBeVisible({ timeout: 20_000 });
   await expect(page.getByRole("button", { name: "Download JSON" })).toBeVisible();

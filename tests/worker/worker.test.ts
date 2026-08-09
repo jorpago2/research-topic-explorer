@@ -136,6 +136,39 @@ describe("Worker security boundary", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ ok: true, data: { subfields: [{ id: "3107", displayName: "Optics" }] } });
   });
+  it("returns bounded, sanitized evidence works from an exact primary Topic query", async () => {
+    let upstreamUrl = "";
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      upstreamUrl = String(input);
+      return Response.json({ results: [{
+        id: "https://openalex.org/W1",
+        display_name: "Evidence work",
+        doi: "https://doi.org/10.1000/example",
+        publication_year: 2024,
+        publication_date: "2024-06-01",
+        cited_by_count: 42,
+        primary_location: { source: { id: "https://openalex.org/S1", display_name: "Optics Express" } },
+        primary_topic: { id: "https://openalex.org/T1", display_name: "Metasurfaces", score: 0.92 },
+        topics: [{ id: "https://openalex.org/T1", display_name: "Metasurfaces", score: 0.92 }],
+      }] });
+    }));
+    const response = await handleRequest(request("/v1/topic-evidence", { sourceIds: ["S1"], topicId: "T1", year: 2024, types: ["article"], subfieldId: "3107", limit: 8 }), env);
+    const text = await response.text();
+    expect(response.status).toBe(200);
+    expect(upstreamUrl).toContain("primary_topic.id%3AT1");
+    expect(upstreamUrl).toContain("primary_topic.subfield.id%3A3107");
+    expect(upstreamUrl).toContain("sort=cited_by_count%3Adesc");
+    expect(upstreamUrl).toContain("include_xpac=false");
+    expect(text).not.toContain("test-secret-never-return");
+    expect(JSON.parse(text)).toMatchObject({ ok: true, data: { selectionMethod: "most-cited-primary-topic-matches", works: [{ id: "W1", citedByCount: 42, primaryTopic: { id: "T1", score: 0.92 } }] } });
+  });
+  it.each([
+    { sourceIds: ["S1"], topicId: "T1|T2", year: 2024, types: [], limit: 8 },
+    { sourceIds: ["S1"], topicId: "T1", year: 2024, types: [], limit: 11 },
+    { sourceIds: ["S1"], topicId: "T1", year: 2024, types: [], limit: 8, sort: "arbitrary" },
+  ])("rejects invalid or expansive evidence requests", async (body) => {
+    expect((await handleRequest(request("/v1/topic-evidence", body), env)).status).toBe(422);
+  });
   it("discovers only ISSN-bearing journal Sources from a validated subfield", async () => {
     const urls: string[] = [];
     vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {

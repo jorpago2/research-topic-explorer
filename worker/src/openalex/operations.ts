@@ -65,6 +65,27 @@ interface OpenAlexTopic {
   domain?: DehydratedEntity | null;
 }
 
+interface OpenAlexTopicAssignment extends DehydratedEntity {
+  score?: number;
+}
+
+interface OpenAlexWork {
+  id?: string;
+  display_name?: string;
+  doi?: string | null;
+  publication_year?: number;
+  publication_date?: string;
+  cited_by_count?: number;
+  primary_location?: { source?: OpenAlexSource | null } | null;
+  primary_topic?: OpenAlexTopicAssignment | null;
+  topics?: OpenAlexTopicAssignment[] | null;
+}
+
+interface OpenAlexWorkResponse {
+  meta?: OpenAlexMeta;
+  results?: OpenAlexWork[];
+}
+
 export interface NormalizedGroupResponse {
   meta: { documentCount: number; nextCursor: string | null; costUsd?: number };
   groups: Array<{ id: string; displayName: string; count: number; topicId?: string; sourceId?: string; year?: number }>;
@@ -89,6 +110,59 @@ function buildWorksFilter(
   if (types.length) filters.push(`type:${types.join("|")}`);
   if (extra) filters.push(extra);
   return filters.join(",");
+}
+
+export async function getTopicEvidence(
+  env: Env,
+  sourceIds: string[],
+  topicId: string,
+  year: number,
+  types: string[],
+  limit: number,
+  subfieldId?: string,
+) {
+  const extraFilters = [`primary_topic.id:${topicId}`];
+  if (subfieldId) extraFilters.push(`primary_topic.subfield.id:${subfieldId}`);
+  const response = await fetchOpenAlexJson<OpenAlexWorkResponse>(env, "/works", {
+    filter: buildWorksFilter(sourceIds, year, types, extraFilters.join(",")),
+    include_xpac: "false",
+    sort: "cited_by_count:desc",
+    per_page: String(limit),
+    select: "id,display_name,doi,publication_year,publication_date,cited_by_count,primary_location,primary_topic,topics",
+  });
+  return {
+    selectionMethod: "most-cited-primary-topic-matches" as const,
+    works: (response.results ?? []).flatMap((work) => {
+      const id = typeof work.id === "string" ? work.id.replace(/^https?:\/\/openalex\.org\//i, "") : "";
+      if (!/^W\d+$/.test(id) || !work.display_name) return [];
+      const sourceId = normalizeOpenAlexId(work.primary_location?.source?.id, "S");
+      return [{
+        id,
+        title: work.display_name,
+        doi: typeof work.doi === "string" && /^https:\/\/doi\.org\//i.test(work.doi) ? work.doi : null,
+        publicationYear: Number(work.publication_year) || year,
+        publicationDate: /^\d{4}-\d{2}-\d{2}$/.test(work.publication_date ?? "") ? work.publication_date! : null,
+        citedByCount: Math.max(0, Number(work.cited_by_count) || 0),
+        source: sourceId ? { id: sourceId, displayName: work.primary_location?.source?.display_name || sourceId } : null,
+        primaryTopic: normalizeTopicAssignment(work.primary_topic),
+        topics: (work.topics ?? []).flatMap((topic) => {
+          const normalized = normalizeTopicAssignment(topic);
+          return normalized ? [normalized] : [];
+        }).slice(0, 3),
+      }];
+    }),
+  };
+}
+
+function normalizeTopicAssignment(topic: OpenAlexTopicAssignment | null | undefined) {
+  const id = normalizeOpenAlexId(topic?.id, "T");
+  if (!id) return null;
+  const score = Number(topic?.score);
+  return {
+    id,
+    displayName: topic?.display_name || id,
+    score: Number.isFinite(score) ? Math.max(0, Math.min(1, score)) : null,
+  };
 }
 
 export async function resolveSources(env: Env, issns: string[]) {

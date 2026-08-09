@@ -108,6 +108,27 @@ export interface TopicDetails {
   domain: TopicHierarchyNode | null;
 }
 
+export interface TopicEvidenceWork {
+  id: string;
+  title: string;
+  doi: string | null;
+  publicationYear: number;
+  publicationDate: string | null;
+  citedByCount: number;
+  source: TopicHierarchyNode | null;
+  primaryTopic: TopicEvidenceAssignment | null;
+  topics: TopicEvidenceAssignment[];
+}
+
+export interface TopicEvidenceAssignment extends TopicHierarchyNode {
+  score: number | null;
+}
+
+export interface TopicEvidenceResult {
+  selectionMethod: "most-cited-primary-topic-matches";
+  works: TopicEvidenceWork[];
+}
+
 export interface TrendPoint {
   topicId: string;
   topic: string;
@@ -130,6 +151,35 @@ export interface TopicEdge {
   sourceId: string;
   targetId: string;
   strength: number;
+  cooccurrences: number;
+}
+
+export type NetworkNormalization = "association-strength" | "cosine" | "jaccard" | "raw";
+
+export interface PeriodComparisonRow {
+  topicId: string;
+  topic: string;
+  periodACount: number;
+  periodBCount: number;
+  periodAAnnualAverage: number;
+  periodBAnnualAverage: number;
+  periodAShare: number;
+  periodBShare: number;
+  annualRateChange: number | null;
+  rankA: number;
+  rankB: number;
+  rankChange: number;
+}
+
+export interface PeriodRange {
+  startYear: number;
+  endYear: number;
+}
+
+export interface PeriodComparisonResult {
+  periodA: PeriodRange;
+  periodB: PeriodRange;
+  rows: PeriodComparisonRow[];
 }
 
 export interface VosviewerItem {

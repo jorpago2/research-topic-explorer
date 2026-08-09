@@ -436,6 +436,39 @@ code {
   gap: spacing.$spacing-03;
 }
 
+.rte-topic-evidence {
+  display: grid;
+  gap: spacing.$spacing-04;
+  padding-block-start: spacing.$spacing-05;
+  border-block-start: 1px solid theme.$border-subtle-01;
+}
+
+.rte-topic-evidence h3 {
+  @include type.type-style('heading-03');
+}
+
+.rte-evidence-list {
+  display: grid;
+  gap: spacing.$spacing-05;
+  padding-inline-start: spacing.$spacing-07;
+}
+
+.rte-evidence-list li {
+  padding-block-end: spacing.$spacing-05;
+  border-block-end: 1px solid theme.$border-subtle-01;
+}
+
+.rte-evidence-list a {
+  color: theme.$link-primary;
+  font-weight: 600;
+}
+
+.rte-evidence-list p {
+  margin-block-start: spacing.$spacing-02;
+  color: theme.$text-secondary;
+  @include type.type-style('label-01');
+}
+
 .rte-footer {
   padding-block: spacing.$spacing-07;
   border-block-start: 1px solid theme.$border-subtle-01;

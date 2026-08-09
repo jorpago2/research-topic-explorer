@@ -1,4 +1,4 @@
-import type { AnalysisScope, DocumentTypeMode, ResultsTab } from "../types/domain";
+import type { AnalysisScope, DocumentTypeMode, NetworkNormalization, ResultsTab } from "../types/domain";
 
 const tabs = new Set<ResultsTab>(["overview", "trends", "network", "journals", "methodology"]);
 
@@ -9,6 +9,7 @@ export interface UrlState {
   documentTypeMode: DocumentTypeMode;
   tab: ResultsTab;
   networkNodes: 20 | 30 | 40;
+  networkNormalization: NetworkNormalization;
 }
 
 export function readUrlState(): UrlState {
@@ -24,6 +25,7 @@ export function readUrlState(): UrlState {
     documentTypeMode: params.get("types") === "all" ? "all" : "article-review",
     tab: tabs.has(tab) ? tab : "overview",
     networkNodes: parsedNodes === 20 || parsedNodes === 40 ? parsedNodes : 30,
+    networkNormalization: parseNetworkNormalization(params.get("normalization")),
   };
 }
 
@@ -35,6 +37,16 @@ export function writeUrlState(state: UrlState): void {
   params.set("types", state.documentTypeMode === "all" ? "all" : "article,review");
   params.set("tab", state.tab);
   params.set("nodes", String(state.networkNodes));
+  params.set("normalization", networkNormalizationParam(state.networkNormalization));
   const query = params.toString();
   window.history.replaceState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`);
+}
+
+function parseNetworkNormalization(value: string | null): NetworkNormalization {
+  if (value === "raw" || value === "cosine" || value === "jaccard") return value;
+  return "association-strength";
+}
+
+function networkNormalizationParam(value: NetworkNormalization): string {
+  return value === "association-strength" ? "association" : value;
 }

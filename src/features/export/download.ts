@@ -1,4 +1,4 @@
-import type { AnalysisResult, JournalResultRow, TrendPoint, VosviewerData } from "../../types/domain";
+import type { AnalysisResult, JournalResultRow, NetworkNormalization, PeriodComparisonResult, TrendPoint, VosviewerData } from "../../types/domain";
 import { slugifyExportFilename } from "../../lib/analysis";
 
 function csvCell(value: unknown): string {
@@ -74,6 +74,27 @@ export function downloadJournalsCsv(analysis: AnalysisResult, rows: JournalResul
   downloadBlob(serializeCsv(data, Object.keys(data[0] ?? {})), "text/csv;charset=utf-8", `${analysisSlug(analysis)}-journals.csv`);
 }
 
-export function downloadVosviewerJson(analysis: AnalysisResult, data: VosviewerData): void {
-  downloadBlob(JSON.stringify(data, null, 2), "application/json;charset=utf-8", `${analysisSlug(analysis)}-vosviewer-network.json`);
+export function downloadVosviewerJson(analysis: AnalysisResult, data: VosviewerData, normalization: NetworkNormalization): void {
+  downloadBlob(JSON.stringify(data, null, 2), "application/json;charset=utf-8", `${analysisSlug(analysis)}-${normalization}-vosviewer-network.json`);
+}
+
+export function downloadPeriodComparisonCsv(analysis: AnalysisResult, comparison: PeriodComparisonResult): void {
+  const data = comparison.rows.map((row) => ({
+    topic_id: row.topicId,
+    topic: row.topic,
+    period_a: `${comparison.periodA.startYear}-${comparison.periodA.endYear}`,
+    period_b: `${comparison.periodB.startYear}-${comparison.periodB.endYear}`,
+    period_a_documents: row.periodACount,
+    period_b_documents: row.periodBCount,
+    period_a_annual_average: row.periodAAnnualAverage,
+    period_b_annual_average: row.periodBAnnualAverage,
+    period_a_share: row.periodAShare,
+    period_b_share: row.periodBShare,
+    annual_rate_change: row.annualRateChange ?? "",
+    period_a_rank_within_selection: row.rankA,
+    period_b_rank_within_selection: row.rankB,
+    rank_change: row.rankChange,
+    ...scopeColumns(analysis),
+  }));
+  downloadBlob(serializeCsv(data, Object.keys(data[0] ?? {})), "text/csv;charset=utf-8", `${analysisSlug(analysis)}-period-comparison.csv`);
 }

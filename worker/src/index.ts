@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createCacheKey } from "./cache/key";
 import { CACHE_TTL_SECONDS, MAX_REQUEST_BODY_BYTES } from "./openalex/constants";
 import { OpenAlexUpstreamError } from "./openalex/client";
-import { getTopicDetails, groupWorks, listSubfields, listSubfieldSources, resolveSources } from "./openalex/operations";
+import { getTopicDetails, getTopicEvidence, groupWorks, listSubfields, listSubfieldSources, resolveSources } from "./openalex/operations";
 import type { AppErrorShape, Env } from "./types/env";
 import {
   categoryYearsRequestSchema,
@@ -10,6 +10,7 @@ import {
   groupedYearRequestSchema,
   resolveSourcesRequestSchema,
   topicDetailsRequestSchema,
+  topicEvidenceRequestSchema,
   topicYearsRequestSchema,
   subfieldsRequestSchema,
   subfieldSourcesRequestSchema,
@@ -23,6 +24,7 @@ const ROUTES = new Set([
   "/v1/group-category-years",
   "/v1/group-sources",
   "/v1/group-topic-cooccurrence",
+  "/v1/topic-evidence",
   "/v1/openalex-subfields",
   "/v1/openalex-subfield-sources",
 ]);
@@ -116,6 +118,10 @@ async function executeRoute(path: string, body: unknown, env: Env): Promise<{ da
       const normalizedBody = topicDetailsRequestSchema.parse(body);
       return { data: await getTopicDetails(env, normalizedBody.topicIds), ttl: CACHE_TTL_SECONDS.topicDetails, normalizedBody };
     }
+    case "/v1/topic-evidence": {
+      const normalizedBody = topicEvidenceRequestSchema.parse(body);
+      return { data: await getTopicEvidence(env, normalizedBody.sourceIds, normalizedBody.topicId, normalizedBody.year, normalizedBody.types, normalizedBody.limit, normalizedBody.subfieldId), ttl: aggregationTtl(normalizedBody.year), normalizedBody };
+    }
     case "/v1/group-topic-years": {
       const normalizedBody = topicYearsRequestSchema.parse(body);
       return { data: await groupWorks(env, normalizedBody.sourceIds, `${normalizedBody.startYear}-${normalizedBody.endYear}`, normalizedBody.types, "publication_year", "*", combineFilters(`primary_topic.id:${normalizedBody.topicId}`, primarySubfieldFilter(normalizedBody.subfieldId))), ttl: aggregationTtl(normalizedBody.endYear), normalizedBody };
@@ -183,7 +189,6 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
       const limit = await env.API_RATE_LIMITER.limit({ key: `${origin}:${client}` });
       if (!limit.success) return errorResponse({ code: "OPENALEX_RATE_LIMITED", message: "This client has reached the request limit. Please wait before retrying.", status: 429, retryAfter: "60" }, origin);
     }
-
     const result = await executeRoute(url.pathname, body, env);
     const envelope = { ok: true, data: result.data };
     if (cache) {
@@ -204,6 +209,7 @@ function normalizeForCache(path: string, body: unknown): unknown {
     case "/v1/openalex-subfield-sources": return subfieldSourcesRequestSchema.parse(body);
     case "/v1/resolve-sources": return resolveSourcesRequestSchema.parse(body);
     case "/v1/topic-details": return topicDetailsRequestSchema.parse(body);
+    case "/v1/topic-evidence": return topicEvidenceRequestSchema.parse(body);
     case "/v1/group-topic-years": return topicYearsRequestSchema.parse(body);
     case "/v1/group-category-years": return categoryYearsRequestSchema.parse(body);
     case "/v1/group-topic-cooccurrence": return cooccurrenceRequestSchema.parse(body);

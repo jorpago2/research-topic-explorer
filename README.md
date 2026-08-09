@@ -12,7 +12,8 @@ No Clarivate/JCR website is scraped. The repository does not include the supplie
 - Supports two explicit analysis scopes: **Strict selected subfield** filters the final corpus by `primary_topic.subfield.id`, while **Entire journal set** analyzes every selected-year work from the discovered journals.
 - Ranks OpenAlex primary topics for a publication year using `group_by=primary_topic.id`; each classified work contributes once to the ranking.
 - Shows counts, shares, classification coverage, hierarchy metadata, five-year trends, year-over-year growth, and a journal breakdown.
-- Builds a bounded topic co-occurrence network and renders it with the official `vosviewer-online` React component.
+- Shows bounded evidence publications for a Topic and compares selected Topics across adjacent two-, three-, or five-year periods.
+- Builds a bounded topic co-occurrence network with raw, VOS association-strength, cosine, or Jaccard link weighting and renders it with the official `vosviewer-online` React component.
 - Exports topic rankings, trends, and journals as CSV and the network as VOSviewer JSON.
 - Stores shareable analysis controls in query parameters without browser storage.
 
@@ -110,6 +111,9 @@ The UI then shows JIF and quartile in the Journals tab and in a user-initiated l
 - **Analysis scope:** strict scope retains only works whose primary topic belongs to the selected Subfield; journal-set scope retains all matching works from the discovered Sources. The selected scope applies consistently to rankings, trends, journal counts, and network queries.
 - **Journal assignment:** works are filtered by `primary_location.source.id`.
 - **Counting rule:** the topic ranking groups on `primary_topic.id`, giving each classified work exactly one primary-topic count.
+- **Topic evidence:** up to eight most-cited matching works are retrieved through a closed endpoint; they must match the Topic as `primary_topic`, Source set, publication year, work types, and analysis scope.
+- **Network normalization:** links first require at least five co-occurring works, then use raw count, association strength `cij/(oi×oj)`, cosine `cij/√(oi×oj)`, or Jaccard `cij/(oi+oj−cij)`.
+- **Period comparison:** selected Topics are aggregated over two adjacent equal-duration periods; the UI reports annual averages, corpus shares, relative change, and rank change within the selection.
 - **Document types:** the default is OpenAlex `article` plus `review`; choosing all types omits the type filter.
 - **Publication year:** OpenAlex `publication_year`, independently selected from the taxonomy.
 - **XPAC:** every works query explicitly sets `include_xpac=false`.
@@ -128,6 +132,7 @@ GET  /health
 POST /v1/resolve-sources
 POST /v1/group-primary-topics
 POST /v1/topic-details
+POST /v1/topic-evidence
 POST /v1/group-topic-years
 POST /v1/group-category-years
 POST /v1/group-sources

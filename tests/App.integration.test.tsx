@@ -37,6 +37,7 @@ beforeEach(() => {
     if (url.endsWith("/v1/openalex-subfield-sources")) return envelope({ sources: [{ id: "S1", displayName: "Optics Express", issnL: "1094-4087", issns: ["1094-4087"], type: "journal", worksCount: 1000 }], nextCursor: null });
     if (url.endsWith("/v1/group-primary-topics")) return envelope({ meta: { documentCount: 100, nextCursor: null }, groups: [{ id: "T1", displayName: "Metasurfaces", count: 60 }, { id: "T2", displayName: "Integrated photonics", count: 40 }] });
     if (url.endsWith("/v1/topic-details")) return envelope({ topics: ["T1", "T2"].map((id, index) => ({ id, displayName: index ? "Integrated photonics" : "Metasurfaces", description: "Fixture topic", keywords: ["optics"], subfield: { id: "sub1", displayName: "Optics" }, field: { id: "field1", displayName: "Physics" }, domain: { id: "domain1", displayName: "Physical Sciences" } })) });
+    if (url.endsWith("/v1/topic-evidence")) return envelope({ selectionMethod: "most-cited-primary-topic-matches", works: [{ id: "W1", title: "Experimental metasurface evidence", doi: "https://doi.org/10.1000/example", publicationYear: 2024, publicationDate: "2024-06-01", citedByCount: 42, source: { id: "S1", displayName: "Optics Express" }, primaryTopic: { id: "T1", displayName: "Metasurfaces", score: 0.92 }, topics: [{ id: "T1", displayName: "Metasurfaces", score: 0.92 }] }] });
     if (url.endsWith("/v1/group-category-years")) return envelope({ meta: { documentCount: 300, nextCursor: null }, groups: [2020, 2021, 2022, 2023, 2024].map((year) => ({ id: String(year), displayName: String(year), count: 100 })) });
     if (url.endsWith("/v1/group-topic-years")) {
       const body = JSON.parse(String(init?.body)) as { topicId: string };
@@ -101,9 +102,15 @@ describe("application workflow", () => {
     expect(window.location.search).toContain("category=3107");
     expect(window.location.search).toContain("scope=strict");
 
+    fireEvent.click(screen.getByRole("button", { name: /Metasurfaces/ }));
+    expect(await screen.findByRole("heading", { name: "Evidence publications" })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "Experimental metasurface evidence" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+
     fireEvent.click(screen.getByRole("tab", { name: "Trends" }));
     expect(await screen.findByRole("heading", { name: "Topic trends" })).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByText(/Loading grouped/)).not.toBeInTheDocument());
+    expect(screen.getByRole("heading", { name: "Period comparison" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: "Journals" }));
     expect(await screen.findByText("Optics Express", { selector: 'td[data-label="Journal"]' })).toBeInTheDocument();
@@ -111,6 +118,7 @@ describe("application workflow", () => {
     expect(screen.getByText(/1\/1 current Sources matched/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: "Network" }));
+    expect(screen.getByRole("combobox", { name: "Link normalization" })).toHaveValue("association-strength");
     fireEvent.click(screen.getByRole("button", { name: "Generate network" }));
     expect(await screen.findByTestId("vosviewer")).toBeInTheDocument();
 

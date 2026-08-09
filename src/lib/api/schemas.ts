@@ -62,3 +62,19 @@ export const topicDetailsSchema = z.object({
     domain: hierarchyNodeSchema.nullable(),
   })),
 });
+
+const evidenceTopicSchema = z.object({ id: topicIdSchema, displayName: z.string(), score: z.number().min(0).max(1).nullable() });
+export const topicEvidenceSchema = z.object({
+  selectionMethod: z.literal("most-cited-primary-topic-matches"),
+  works: z.array(z.object({
+    id: z.string().regex(/^W\d+$/),
+    title: z.string(),
+    doi: z.string().url().nullable(),
+    publicationYear: z.number().int(),
+    publicationDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
+    citedByCount: z.number().int().nonnegative(),
+    source: hierarchyNodeSchema.nullable(),
+    primaryTopic: evidenceTopicSchema.nullable(),
+    topics: z.array(evidenceTopicSchema).max(3),
+  })).max(10),
+});

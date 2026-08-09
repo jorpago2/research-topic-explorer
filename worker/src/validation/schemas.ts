@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   MAX_ISSNS,
+  MAX_EVIDENCE_WORKS,
   MAX_SOURCE_IDS,
   MAX_TOPIC_IDS,
   MAX_YEAR_RANGE,
@@ -74,6 +75,15 @@ export const cooccurrenceRequestSchema = z.object({
   subfieldId: subfieldId.optional(),
 }).strict();
 
+export const topicEvidenceRequestSchema = z.object({
+  sourceIds,
+  topicId,
+  year: publicationYear,
+  types: documentTypes,
+  subfieldId: subfieldId.optional(),
+  limit: z.number().int().min(1).max(MAX_EVIDENCE_WORKS).default(8),
+}).strict();
+
 export const subfieldsRequestSchema = z.object({}).strict();
 
 export const subfieldSourcesRequestSchema = z.object({
@@ -85,3 +95,4 @@ export type GroupedYearRequest = z.infer<typeof groupedYearRequestSchema>;
 export type TopicYearsRequest = z.infer<typeof topicYearsRequestSchema>;
 export type CategoryYearsRequest = z.infer<typeof categoryYearsRequestSchema>;
 export type CooccurrenceRequest = z.infer<typeof cooccurrenceRequestSchema>;
+export type TopicEvidenceRequest = z.infer<typeof topicEvidenceRequestSchema>;
