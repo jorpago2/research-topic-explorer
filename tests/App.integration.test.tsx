@@ -68,6 +68,13 @@ describe("application workflow", () => {
     fireEvent.change(fieldSelect, { target: { value: "31" } });
     await waitFor(() => expect(subfieldInput).toHaveValue("Optics"));
 
+    fireEvent.click(screen.getByRole("button", { name: "Open" }));
+    expect(await screen.findByRole("option", { name: "Quantum Optics" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Clear selected item" }));
+    await waitFor(() => expect(subfieldInput).toHaveValue(""));
+    expect(domainSelect).toHaveValue("3");
+    expect(fieldSelect).toHaveValue("31");
+
     fireEvent.change(subfieldInput, { target: { value: "quantum" } });
     fireEvent.click(await screen.findByRole("option", { name: "Quantum Optics" }));
     await waitFor(() => expect(subfieldInput).toHaveValue("Quantum Optics"));

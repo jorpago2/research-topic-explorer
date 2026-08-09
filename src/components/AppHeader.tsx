@@ -9,7 +9,7 @@ export function AppHeader({ onMethodology, serviceAvailable }: AppHeaderProps) {
   const repositoryUrl = import.meta.env.VITE_GITHUB_REPOSITORY_URL;
   return (
     <Header aria-label="Research Topic Explorer">
-      <HeaderName href={import.meta.env.BASE_URL} prefix="OpenAlex">
+      <HeaderName className="rte-header-name" href={import.meta.env.BASE_URL} prefix="OpenAlex">
         Topic Explorer
       </HeaderName>
       <div className="rte-header-actions">

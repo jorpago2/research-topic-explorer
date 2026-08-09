@@ -497,3 +497,10 @@ code {
     gap: spacing.$spacing-02;
   }
 }
+
+@media (max-width: 22.5rem) {
+  .rte-header-name {
+    padding-inline-end: spacing.$spacing-03;
+    white-space: nowrap;
+  }
+}

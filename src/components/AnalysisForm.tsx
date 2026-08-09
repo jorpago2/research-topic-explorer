@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { Button, Column, ComboBox, Grid, Select, SelectItem } from "@carbon/react";
 import type { DocumentTypeMode, OpenAlexSubfield, TopicHierarchyNode } from "../types/domain";
@@ -23,8 +23,14 @@ interface AnalysisFormProps {
 export function AnalysisForm(props: AnalysisFormProps) {
   const years = Array.from({ length: 16 }, (_, index) => new Date().getFullYear() - index);
   const selectedSubfield = props.subfields.find((subfield) => subfield.id === props.categoryId) ?? null;
-  const selectedDomainId = selectedSubfield?.domain?.id ?? (selectedSubfield ? UNCLASSIFIED_ID : "");
-  const selectedFieldId = selectedSubfield?.field?.id ?? (selectedSubfield ? UNCLASSIFIED_ID : "");
+  const [selectedDomainId, setSelectedDomainId] = useState("");
+  const [selectedFieldId, setSelectedFieldId] = useState("");
+
+  useEffect(() => {
+    if (!selectedSubfield) return;
+    setSelectedDomainId(hierarchyId(selectedSubfield.domain));
+    setSelectedFieldId(hierarchyId(selectedSubfield.field));
+  }, [selectedSubfield]);
   const domains = useMemo(
     () => uniqueNodes(props.subfields.map((subfield) => subfield.domain ?? UNCLASSIFIED_DOMAIN)),
     [props.subfields],
@@ -51,14 +57,19 @@ export function AnalysisForm(props: AnalysisFormProps) {
 
   function selectFirstSubfield(candidates: OpenAlexSubfield[]) {
     const first = [...candidates].sort(compareSubfields)[0];
-    if (first) props.onCategoryChange(first.id);
+    if (!first) return;
+    setSelectedDomainId(hierarchyId(first.domain));
+    setSelectedFieldId(hierarchyId(first.field));
+    props.onCategoryChange(first.id);
   }
 
   function changeDomain(domainId: string) {
+    setSelectedDomainId(domainId);
     selectFirstSubfield(props.subfields.filter((subfield) => hierarchyId(subfield.domain) === domainId));
   }
 
   function changeField(fieldId: string) {
+    setSelectedFieldId(fieldId);
     selectFirstSubfield(props.subfields.filter(
       (subfield) => hierarchyId(subfield.domain) === selectedDomainId && hierarchyId(subfield.field) === fieldId,
     ));
@@ -112,10 +123,12 @@ export function AnalysisForm(props: AnalysisFormProps) {
               selectedItem={selectedSubfield}
               shouldFilterItem={({ item, inputValue }) => {
                 const query = (inputValue ?? "").trim().toLocaleLowerCase();
+                const selectedLabel = selectedSubfield?.displayName.toLocaleLowerCase();
+                if (query && query === selectedLabel) return true;
                 return !query || item.displayName.toLocaleLowerCase().includes(query) || item.id.toLocaleLowerCase().includes(query);
               }}
               onChange={({ selectedItem }) => {
-                if (selectedItem) props.onCategoryChange(selectedItem.id);
+                props.onCategoryChange(selectedItem?.id ?? "");
               }}
               disabled={props.loading || !visibleSubfields.length}
               autoAlign

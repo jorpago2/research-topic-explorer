@@ -37,6 +37,7 @@ export default function App() {
   const [jifLoading, setJifLoading] = useState(false);
   const [jifError, setJifError] = useState<string | null>(null);
   const [selectedTopic, setSelectedTopic] = useState<TopicRankingRow | null>(null);
+  const [categoryWasCleared, setCategoryWasCleared] = useState(false);
   const controllerRef = useRef<AbortController | null>(null);
 
   const healthQuery = useQuery({ queryKey: ["health"], queryFn: ({ signal }) => apiRequest("/health", healthSchema, undefined, signal), retry: false, staleTime: 60_000 });
@@ -44,11 +45,11 @@ export default function App() {
   const selectedSubfield = subfieldsQuery.data?.subfields.find((subfield) => subfield.id === categoryId);
 
   useEffect(() => {
-    if (subfieldsQuery.data?.subfields.length && !subfieldsQuery.data.subfields.some((subfield) => subfield.id === categoryId)) {
+    if (subfieldsQuery.data?.subfields.length && !categoryWasCleared && !subfieldsQuery.data.subfields.some((subfield) => subfield.id === categoryId)) {
       const optics = subfieldsQuery.data.subfields.find((subfield) => subfield.displayName.toLocaleLowerCase().includes("optics"));
       setCategoryId(optics?.id ?? subfieldsQuery.data.subfields[0].id);
     }
-  }, [subfieldsQuery.data, categoryId]);
+  }, [subfieldsQuery.data, categoryId, categoryWasCleared]);
   useEffect(() => { writeUrlState({ categoryId, year, documentTypeMode, tab, networkNodes }); }, [categoryId, year, documentTypeMode, tab, networkNodes]);
   useEffect(() => () => controllerRef.current?.abort(), []);
 
@@ -69,7 +70,7 @@ export default function App() {
     setAnalysis(null);
     setSelectedTopic(null);
   }
-  function changeCategory(value: string) { invalidateAnalysis(); setCategoryId(value); }
+  function changeCategory(value: string) { invalidateAnalysis(); setCategoryWasCleared(!value); setCategoryId(value); }
   function changeYear(value: number) { invalidateAnalysis(); setYear(value); }
   function changeTypes(value: DocumentTypeMode) { invalidateAnalysis(); setDocumentTypeMode(value); }
   function openMethodology() {

@@ -38,6 +38,12 @@ test("runs the shareable analysis workflow under a project base path", async ({ 
   await expect(subfieldInput).toHaveValue("Artificial Intelligence");
   await fieldSelect.selectOption("31");
   await expect(subfieldInput).toHaveValue("Optics");
+  await page.getByRole("button", { name: "Open" }).click();
+  await expect(page.getByRole("option", { name: "Quantum Optics" })).toBeVisible();
+  await page.getByRole("button", { name: "Clear selected item" }).click();
+  await expect(subfieldInput).toHaveValue("");
+  await expect(domainSelect).toHaveValue("3");
+  await expect(fieldSelect).toHaveValue("31");
   await subfieldInput.fill("quantum");
   await page.getByRole("option", { name: "Quantum Optics" }).click();
   await expect(subfieldInput).toHaveValue("Quantum Optics");
