@@ -76,6 +76,15 @@ function aggregationTtl(year: number): number {
     : CACHE_TTL_SECONDS.historicalAggregation;
 }
 
+function assertNoFutureYears(value: unknown): void {
+  if (!value || typeof value !== "object") return;
+  const currentYear = new Date().getUTCFullYear();
+  for (const key of ["year", "startYear", "endYear"] as const) {
+    const candidate = (value as Record<string, unknown>)[key];
+    if (typeof candidate === "number" && candidate > currentYear) throw new Error("FUTURE_YEAR");
+  }
+}
+
 async function executeRoute(path: string, body: unknown, env: Env): Promise<{ data: unknown; ttl: number; normalizedBody: unknown }> {
   switch (path) {
     case "/v1/resolve-sources": {
@@ -128,6 +137,7 @@ function mapError(error: unknown): AppErrorShape {
   }
   if (error instanceof Error && error.message === "REQUEST_TOO_LARGE") return { code: "CATEGORY_INPUT_TOO_LARGE", message: "The request body exceeds the allowed size.", status: 413 };
   if (error instanceof Error && error.message === "INVALID_JSON") return { code: "INVALID_REQUEST", message: "The request body is not valid JSON.", status: 400 };
+  if (error instanceof Error && error.message === "FUTURE_YEAR") return { code: "INVALID_REQUEST", message: "Publication years cannot be later than the current calendar year.", status: 422 };
   return { code: "INTERNAL_ERROR", message: "The request could not be completed.", status: 500 };
 }
 
@@ -157,6 +167,7 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
   try {
     const body = await parseBody(request);
     const parsed = await normalizeForCache(url.pathname, body);
+    assertNoFutureYears(parsed);
     const cacheKey = await createCacheKey(url.pathname, parsed);
     const cache = typeof caches === "undefined" ? null : await caches.open("research-topic-explorer-v2");
     const cached = cache ? await cache.match(cacheKey) : undefined;

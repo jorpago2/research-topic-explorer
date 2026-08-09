@@ -89,4 +89,12 @@ describe("Worker security boundary", () => {
     const response = await handleRequest(request("/v1/openalex-subfield-sources", { subfieldId: "3107|malicious", cursor: "*" }), env);
     expect(response.status).toBe(422);
   });
+  it("validates the current calendar year at request time", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ meta: { count: 0, next_cursor: null }, group_by: [] })));
+    const currentYear = new Date().getUTCFullYear();
+    const accepted = await handleRequest(request("/v1/group-primary-topics", { sourceIds: ["S1"], year: currentYear, types: [], cursor: "*" }), env);
+    const rejected = await handleRequest(request("/v1/group-primary-topics", { sourceIds: ["S1"], year: currentYear + 1, types: [], cursor: "*" }), env);
+    expect(accepted.status).toBe(200);
+    expect(rejected.status).toBe(422);
+  });
 });
