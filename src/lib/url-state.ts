@@ -1,6 +1,7 @@
 import type { AnalysisScope, DocumentTypeMode, NetworkNormalization, ResultsTab } from "../types/domain";
 
 const tabs = new Set<ResultsTab>(["overview", "trends", "network", "journals", "methodology"]);
+export const DEFAULT_SUBFIELD_ID = "2208";
 
 export interface UrlState {
   categoryId: string;
@@ -19,7 +20,7 @@ export function readUrlState(): UrlState {
   const tab = params.get("tab") as ResultsTab;
   const scope = params.get("scope");
   return {
-    categoryId: params.get("category") || "",
+    categoryId: params.get("category") || DEFAULT_SUBFIELD_ID,
     year: Number.isInteger(parsedYear) && parsedYear >= 1800 && parsedYear <= new Date().getFullYear() ? parsedYear : new Date().getFullYear() - 1,
     analysisScope: scope === "strict" ? "strict-subfield" : scope === "journals" ? "journal-set" : params.has("category") ? "journal-set" : "strict-subfield",
     documentTypeMode: params.get("types") === "all" ? "all" : "article-review",

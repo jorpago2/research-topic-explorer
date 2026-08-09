@@ -17,6 +17,7 @@ const localJifDataset = {
 };
 
 const subfieldFixtures = [
+  { id: "2208", displayName: "Electrical and Electronic Engineering", field: { id: "22", displayName: "Engineering" }, domain: { id: "3", displayName: "Physical Sciences" } },
   { id: "3107", displayName: "Optics", field: { id: "31", displayName: "Physics and Astronomy" }, domain: { id: "3", displayName: "Physical Sciences" } },
   { id: "3108", displayName: "Quantum Optics", field: { id: "31", displayName: "Physics and Astronomy" }, domain: { id: "3", displayName: "Physical Sciences" } },
   { id: "1702", displayName: "Artificial Intelligence", field: { id: "17", displayName: "Computer Science" }, domain: { id: "3", displayName: "Physical Sciences" } },
@@ -56,6 +57,16 @@ function renderApp() {
 }
 
 describe("application workflow", () => {
+  it("defaults to Electrical and Electronic Engineering when the URL has no category", async () => {
+    window.history.replaceState(null, "", "/");
+    renderApp();
+
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "OpenAlex subfield" })).toHaveValue("Electrical and Electronic Engineering"));
+    expect(screen.getByRole("combobox", { name: "OpenAlex field" })).toHaveValue("22");
+    expect(window.location.search).toContain("category=2208");
+    expect(window.location.search).toContain("scope=strict");
+  });
+
   it("loads a category, analyzes ranking, and exposes all result views", async () => {
     renderApp();
     const domainSelect = await screen.findByRole("combobox", { name: "OpenAlex domain" });

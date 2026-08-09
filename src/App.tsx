@@ -20,7 +20,7 @@ import { analyzeOpenAlexSubfield, applyJifDataset, type AnalysisPhase } from "./
 import { TrendsTab } from "./features/trends/TrendsTab";
 import { apiRequest } from "./lib/api/client";
 import { healthSchema, subfieldsSchema } from "./lib/api/schemas";
-import { readUrlState, writeUrlState } from "./lib/url-state";
+import { DEFAULT_SUBFIELD_ID, readUrlState, writeUrlState } from "./lib/url-state";
 import type { AnalysisResult, AnalysisScope, DocumentTypeMode, JifDataset, NetworkNormalization, ResultsTab, TopicRankingRow } from "./types/domain";
 
 export default function App() {
@@ -48,8 +48,8 @@ export default function App() {
 
   useEffect(() => {
     if (subfieldsQuery.data?.subfields.length && !categoryWasCleared && !subfieldsQuery.data.subfields.some((subfield) => subfield.id === categoryId)) {
-      const optics = subfieldsQuery.data.subfields.find((subfield) => subfield.displayName.toLocaleLowerCase().includes("optics"));
-      setCategoryId(optics?.id ?? subfieldsQuery.data.subfields[0].id);
+      const defaultSubfield = subfieldsQuery.data.subfields.find((subfield) => subfield.id === DEFAULT_SUBFIELD_ID);
+      setCategoryId(defaultSubfield?.id ?? subfieldsQuery.data.subfields[0].id);
     }
   }, [subfieldsQuery.data, categoryId, categoryWasCleared]);
   useEffect(() => { writeUrlState({ categoryId, year, analysisScope, documentTypeMode, tab, networkNodes, networkNormalization }); }, [categoryId, year, analysisScope, documentTypeMode, tab, networkNodes, networkNormalization]);
