@@ -4,6 +4,7 @@ import {
   MAX_SOURCE_IDS,
   MAX_TOPIC_IDS,
   MAX_YEAR_RANGE,
+  MAX_PUBLICATION_YEAR,
   MIN_PUBLICATION_YEAR,
 } from "../openalex/constants";
 import { normalizeIssn } from "./issn";
@@ -13,8 +14,7 @@ const topicId = z.string().transform((value) => value.trim().toUpperCase()).pipe
 const subfieldId = z.union([z.string(), z.number().int()])
   .transform((value) => String(value).trim().replace(/^https?:\/\/openalex\.org\/subfields\//i, ""))
   .pipe(z.string().regex(/^\d{1,8}$/));
-const currentYear = new Date().getUTCFullYear();
-const publicationYear = z.number().int().min(MIN_PUBLICATION_YEAR).max(currentYear);
+const publicationYear = z.number().int().min(MIN_PUBLICATION_YEAR).max(MAX_PUBLICATION_YEAR);
 const documentTypes = z.array(z.enum(["article", "review"])).max(2).refine((values) => new Set(values).size === values.length, "Duplicate work types are not allowed.");
 const sourceIds = z.array(sourceId).min(1).max(MAX_SOURCE_IDS).transform((values) => [...new Set(values)].sort());
 

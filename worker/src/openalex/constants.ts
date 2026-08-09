@@ -5,6 +5,7 @@ export const MAX_TOPIC_IDS = 40;
 export const MAX_NETWORK_NODES = 40;
 export const MAX_YEAR_RANGE = 15;
 export const MIN_PUBLICATION_YEAR = 1800;
+export const MAX_PUBLICATION_YEAR = 2100;
 export const MAX_REQUEST_BODY_BYTES = 32_768;
 export const GROUPS_PER_PAGE = 200;
 export const TOPIC_DETAILS_CONCURRENCY = 4;
