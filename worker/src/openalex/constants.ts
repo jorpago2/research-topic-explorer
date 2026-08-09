@@ -12,7 +12,7 @@ export const GROUPS_PER_PAGE = 200;
 export const TOPIC_DETAILS_CONCURRENCY = 4;
 export const SOURCE_DISCOVERY_LIMIT = 100;
 export const ACTOR_GROUP_LIMIT = 100;
-export const CACHE_SCHEMA_VERSION = "10";
+export const CACHE_SCHEMA_VERSION = "11";
 
 export const CACHE_TTL_SECONDS = {
   sourceResolution: 30 * 24 * 60 * 60,

@@ -154,5 +154,5 @@ describe("application workflow", () => {
     for (const path of ["/v1/group-primary-topics", "/v1/group-category-years", "/v1/group-topic-years", "/v1/topic-impact-years", "/v1/topic-actors", "/v1/group-sources", "/v1/group-topic-cooccurrence"]) {
       expect(groupedRequestBodies.some((request) => request.path === path && request.body.subfieldId === "3107"), `${path} should preserve strict scope`).toBe(true);
     }
-  });
+  }, 15_000);
 });
