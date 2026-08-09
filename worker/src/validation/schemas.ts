@@ -74,7 +74,7 @@ export const subfieldsRequestSchema = z.object({}).strict();
 
 export const subfieldSourcesRequestSchema = z.object({
   subfieldId,
-  cursor: z.string().min(1).max(2048).default("*"),
+  cursor: z.literal("*").default("*"),
 }).strict();
 
 export type GroupedYearRequest = z.infer<typeof groupedYearRequestSchema>;
