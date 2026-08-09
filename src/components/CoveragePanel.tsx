@@ -9,7 +9,7 @@ export function CoveragePanel({ coverage }: { coverage: CoverageReport }) {
         <span className="coverage-summary-icon" aria-hidden="true">{incomplete ? <AlertCircle size={19} /> : <CheckCircle2 size={19} />}</span>
         <span>
           <strong>OpenAlex journal set: {coverage.uniqueSources.length} Sources</strong>
-          <small>{incomplete ? `Results exclude ${coverage.unresolvedJournals} unmatched journal(s).` : "Membership is derived directly from OpenAlex Source topics."}</small>
+          <small>{incomplete ? `Results exclude ${coverage.unresolvedJournals} unmatched journal(s).` : "Membership is derived from OpenAlex primary-topic work groups."}</small>
         </span>
         <span className="coverage-rate">{coverage.coveragePercentage.toFixed(1)}%</span>
       </summary>

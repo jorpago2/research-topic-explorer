@@ -1,7 +1,6 @@
 import type { Env } from "../types/env";
 import {
   GROUPS_PER_PAGE,
-  MAX_SUBFIELD_TOPICS,
   OPENALEX_OR_LIMIT,
   SOURCE_DISCOVERY_PAGE_SIZE,
   TOPIC_DETAILS_CONCURRENCY,
@@ -49,11 +48,6 @@ interface OpenAlexSubfield {
 interface OpenAlexSubfieldResponse {
   meta?: OpenAlexMeta;
   results?: OpenAlexSubfield[];
-}
-
-interface OpenAlexTopicListResponse {
-  meta?: OpenAlexMeta;
-  results?: Array<{ id?: string }>;
 }
 
 interface DehydratedEntity {
@@ -164,25 +158,27 @@ export async function listSubfields(env: Env) {
 }
 
 export async function listSubfieldSources(env: Env, subfieldId: string, cursor: string) {
-  const topicResponse = await fetchOpenAlexJson<OpenAlexTopicListResponse>(env, "/topics", {
-    filter: `subfield.id:${subfieldId}`,
-    per_page: String(MAX_SUBFIELD_TOPICS),
-    cursor: "*",
-    select: "id",
-  });
-  if (topicResponse.meta?.next_cursor) throw new Error("SUBFIELD_TOO_LARGE");
-  const topicIds = [...new Set((topicResponse.results ?? [])
-    .map((topic) => normalizeOpenAlexId(topic.id, "T"))
-    .filter((id): id is string => Boolean(id)))];
-  if (!topicIds.length) return { sources: [], nextCursor: null };
-
-  const response = await fetchOpenAlexJson<OpenAlexSourceResponse>(env, "/sources", {
-    filter: `type:journal,has_issn:true,topics.id:${topicIds.join("|")}`,
-    sort: "-works_count",
+  const grouped = await fetchOpenAlexJson<OpenAlexGroupedResponse>(env, "/works", {
+    filter: `primary_topic.subfield.id:${subfieldId},primary_location.source.type:journal,primary_location.source.has_issn:true,type:article|review`,
+    group_by: "primary_location.source.id",
+    include_xpac: "false",
     per_page: String(SOURCE_DISCOVERY_PAGE_SIZE),
     cursor,
+  });
+  const sourceIds = [...new Set((grouped.group_by ?? [])
+    .map((group) => normalizeOpenAlexId(String(group.key), "S"))
+    .filter((id): id is string => Boolean(id)))];
+  if (!sourceIds.length) return { sources: [], nextCursor: grouped.meta?.next_cursor ?? null };
+
+  const response = await fetchOpenAlexJson<OpenAlexSourceResponse>(env, "/sources", {
+    filter: `openalex:${sourceIds.join("|")}`,
+    per_page: String(SOURCE_DISCOVERY_PAGE_SIZE),
     select: "id,display_name,issn_l,issn,type,works_count",
   });
+  const rank = new Map((grouped.group_by ?? []).flatMap((group, index) => {
+    const id = normalizeOpenAlexId(String(group.key), "S");
+    return id ? [[id, index] as const] : [];
+  }));
   const sources = (response.results ?? []).flatMap((source) => {
     const id = normalizeOpenAlexId(source.id, "S");
     if (!id) return [];
@@ -195,7 +191,8 @@ export async function listSubfieldSources(env: Env, subfieldId: string, cursor: 
       worksCount: Number(source.works_count) || 0,
     }];
   });
-  return { sources, nextCursor: response.meta?.next_cursor ?? null };
+  sources.sort((a, b) => (rank.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.id) ?? Number.MAX_SAFE_INTEGER));
+  return { sources, nextCursor: grouped.meta?.next_cursor ?? null };
 }
 
 export async function groupWorks(

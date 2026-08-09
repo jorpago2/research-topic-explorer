@@ -170,7 +170,7 @@ export interface AnalysisMetadata {
   topicCountingMethod: "openalex-primary-topic";
   networkMethod: "openalex-topic-cooccurrence";
   includeXpac: false;
-  journalSetMethod?: "openalex-source-top-topics";
+  journalSetMethod?: "openalex-primary-subfield-source-groups";
   sourceSetTruncated?: boolean;
   jifEdition?: string;
 }

@@ -8,7 +8,7 @@ No Clarivate/JCR website is scraped. The repository does not include the supplie
 
 ## What it does
 
-- Loads all 254 OpenAlex Subfields and automatically derives an ISSN-bearing journal set from OpenAlex Source topics.
+- Loads all 254 OpenAlex Subfields and automatically derives an ISSN-bearing journal set from primary-topic work groups.
 - Ranks all OpenAlex primary topics for a publication year using `group_by=primary_topic.id`; each classified work contributes once to the ranking.
 - Shows counts, shares, classification coverage, hierarchy metadata, five-year trends, year-over-year growth, and a journal breakdown.
 - Builds a bounded topic co-occurrence network and renders it with the official `vosviewer-online` React component.
@@ -80,9 +80,9 @@ The default Worker allowlist accepts exactly `http://localhost:5173`.
 
 ## OpenAlex journal classification
 
-The selector uses the OpenAlex hierarchy [`Domain → Field → Subfield → Topic`](https://developers.openalex.org/api-reference/subfields). A journal Source belongs to a selected Subfield when at least one of the Source's up to 25 highest-volume Topics belongs to that Subfield. OpenAlex defines this Source [`topics` list using raw publication counts](https://help.openalex.org/hc/en-us/articles/27255333459991-What-is-the-difference-between-topics-and-topic-share-in-OpenAlex-entities). Membership may overlap across Subfields.
+The selector uses the OpenAlex hierarchy [`Domain → Field → Subfield → Topic`](https://developers.openalex.org/api-reference/subfields). The Worker filters all OpenAlex articles and reviews by `primary_topic.subfield.id`, requires an ISSN-bearing journal as the primary Source, and groups the matching works by Source. Membership may overlap across Subfields.
 
-The Worker lists Sources in descending OpenAlex `works_count`, requires `type:journal` and an ISSN, and the browser accepts at most 500 Sources. This produces a reproducible, bounded journal set without manual classification. It is an OpenAlex-derived operational definition, not a JCR category.
+The browser accepts the first 500 Source groups, which OpenAlex returns by matching-work count. This produces a reproducible, bounded journal set without manual classification. It is an OpenAlex-derived operational definition, not a JCR category.
 
 The analyzed publication year is independent of this Source-level taxonomy. The selected Source IDs are fixed for topic rankings, trends, journal breakdowns, and network construction in a completed analysis.
 
@@ -108,7 +108,7 @@ The UI then shows JIF and quartile in the Journals tab and CSV export. Missing J
 
 ## Methodology
 
-- **Journal-set rule:** OpenAlex Source `topics` defines membership in the selected OpenAlex Subfield; membership is not inferred from JIF.
+- **Journal-set rule:** the 500 journals with the most OpenAlex articles/reviews whose primary topic belongs to the selected Subfield define the set; membership is not inferred from JIF.
 - **Journal assignment:** works are filtered by `primary_location.source.id`.
 - **Counting rule:** the topic ranking groups on `primary_topic.id`, giving each classified work exactly one primary-topic count.
 - **Document types:** the default is OpenAlex `article` plus `review`; choosing all types omits the type filter.
@@ -195,8 +195,8 @@ CSV and JSON downloads carry or derive the OpenAlex Subfield ID/name, journal-se
 
 ## Known limits
 
-- Source Topics are an OpenAlex-derived, non-exclusive classification and can change when OpenAlex updates its records.
-- The 500-Source cap favors the largest journals by total OpenAlex works count and is reported in methodology metadata.
+- OpenAlex primary-topic assignments are non-exclusive at journal-set level and can change when OpenAlex updates its records.
+- The 500-Source cap favors journals with the most matching primary-topic articles/reviews and is reported in methodology metadata.
 - Clarivate JIF data is not published by default; the deployer is responsible for confirming redistribution rights.
 - Results inherit OpenAlex coverage and classification quality and can change as OpenAlex updates records.
 - The official VOSviewer bundle is large (about 1.55 MB compressed in the current build), but is split into a lazy chunk and is not loaded for ranking, trends, or journal views.
