@@ -83,7 +83,7 @@ export function AnalysisForm(props: AnalysisFormProps) {
         <Column sm={4} md={8} lg={10}>
           <p className="rte-eyebrow">OPEN BIBLIOMETRIC ANALYSIS</p>
           <h1 id="analysis-heading">Explore an OpenAlex research subfield</h1>
-          <p className="rte-lead">Discover its journal set, rank primary topics, trace five-year change, and map topic co-occurrence.</p>
+          <p className="rte-lead">Discover its journal set, rank primary topics, compare periods, and map topic co-occurrence.</p>
         </Column>
       </Grid>
       <form onSubmit={submit}>

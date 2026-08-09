@@ -142,7 +142,7 @@ describe("Worker security boundary", () => {
       upstreamUrl = String(input);
       return Response.json({ results: [{
         id: "https://openalex.org/W1",
-        display_name: "Evidence work",
+        display_name: "Crystal transport in <mml:msub><mml:mi>RuO</mml:mi><mml:mn>2</mml:mn></mml:msub>",
         doi: "https://doi.org/10.1000/example",
         publication_year: 2024,
         publication_date: "2024-06-01",
@@ -160,7 +160,7 @@ describe("Worker security boundary", () => {
     expect(upstreamUrl).toContain("sort=cited_by_count%3Adesc");
     expect(upstreamUrl).toContain("include_xpac=false");
     expect(text).not.toContain("test-secret-never-return");
-    expect(JSON.parse(text)).toMatchObject({ ok: true, data: { selectionMethod: "most-cited-primary-topic-matches", works: [{ id: "W1", citedByCount: 42, primaryTopic: { id: "T1", score: 0.92 } }] } });
+    expect(JSON.parse(text)).toMatchObject({ ok: true, data: { selectionMethod: "most-cited-primary-topic-matches", works: [{ id: "W1", title: "Crystal transport in RuO2", citedByCount: 42, primaryTopic: { id: "T1", score: 0.92 } }] } });
   });
   it.each([
     { sourceIds: ["S1"], topicId: "T1|T2", year: 2024, types: [], limit: 8 },

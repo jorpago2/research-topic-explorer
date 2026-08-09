@@ -134,11 +134,12 @@ export async function getTopicEvidence(
     selectionMethod: "most-cited-primary-topic-matches" as const,
     works: (response.results ?? []).flatMap((work) => {
       const id = typeof work.id === "string" ? work.id.replace(/^https?:\/\/openalex\.org\//i, "") : "";
-      if (!/^W\d+$/.test(id) || !work.display_name) return [];
+      const title = plainTextTitle(work.display_name ?? "");
+      if (!/^W\d+$/.test(id) || !title) return [];
       const sourceId = normalizeOpenAlexId(work.primary_location?.source?.id, "S");
       return [{
         id,
-        title: work.display_name,
+        title,
         doi: typeof work.doi === "string" && /^https:\/\/doi\.org\//i.test(work.doi) ? work.doi : null,
         publicationYear: Number(work.publication_year) || year,
         publicationDate: /^\d{4}-\d{2}-\d{2}$/.test(work.publication_date ?? "") ? work.publication_date! : null,
@@ -163,6 +164,15 @@ function normalizeTopicAssignment(topic: OpenAlexTopicAssignment | null | undefi
     displayName: topic?.display_name || id,
     score: Number.isFinite(score) ? Math.max(0, Math.min(1, score)) : null,
   };
+}
+
+function plainTextTitle(value: string): string {
+  const entities: Record<string, string> = { "&amp;": "&", "&lt;": "<", "&gt;": ">", "&quot;": "\"", "&apos;": "'", "&#39;": "'" };
+  return value
+    .replace(/<[^>]*>/g, "")
+    .replace(/&(amp|lt|gt|quot|apos|#39);/g, (entity) => entities[entity] ?? entity)
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export async function resolveSources(env: Env, issns: string[]) {

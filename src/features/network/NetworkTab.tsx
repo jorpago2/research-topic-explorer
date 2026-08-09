@@ -64,7 +64,7 @@ export function NetworkTab({ analysis, nodeCount = DEFAULT_NETWORK_NODES, normal
         <Column sm={4} md={8} lg={16}>
           <Tile className="rte-section-tile">
             <div className="rte-section-heading">
-              <div><h3 id="network-heading">Topic co-occurrence network</h3><p>Nodes are ranked primary topics. Links count works where both topics occur in the full OpenAlex topic array.</p></div>
+              <div><h3 id="network-heading">Topic co-occurrence network</h3><p>Nodes are ranked primary topics. Links connect topics found in the same works; the selected normalization controls their strength.</p></div>
               <div className="rte-button-group">
                 {data ? <Button kind="secondary" size="md" type="button" onClick={() => downloadVosviewerJson(analysis, data, normalization)}>Download JSON</Button> : null}
                 {loading ? <Button kind="tertiary" size="md" type="button" onClick={cancel}>Cancel</Button> : <Button size="md" type="button" onClick={generate} disabled={analysis.ranking.length < 2}>{data ? "Regenerate" : "Generate network"}</Button>}

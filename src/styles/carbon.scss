@@ -32,7 +32,7 @@ html {
 
 body {
   margin: 0;
-  min-width: 20rem;
+  min-width: 0;
   overflow-x: clip;
   background: theme.$background;
   color: theme.$text-primary;
@@ -228,6 +228,15 @@ code {
 
 .rte-table-scroll {
   overflow-x: auto;
+}
+
+.rte-comparison-table {
+  min-width: 70rem;
+}
+
+.rte-comparison-table th:first-child,
+.rte-comparison-table td:first-child {
+  min-width: 16rem;
 }
 
 .rte-tabs-grid {

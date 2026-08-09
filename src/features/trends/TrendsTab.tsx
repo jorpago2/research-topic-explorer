@@ -9,7 +9,7 @@ import { buildPeriodComparison, COMPARISON_PERIOD_OPTIONS, DEFAULT_TREND_TOPIC_C
 const chartColors = Array.from({ length: 12 }, (_, index) => `var(--rte-chart-${index + 1})`);
 
 export function TrendsTab({ analysis }: { analysis: AnalysisResult }) {
-  const defaultStart = Math.max(1800, analysis.year - 4);
+  const defaultStart = Math.max(1800, analysis.year - 5);
   const [startYear, setStartYear] = useState(defaultStart);
   const [metric, setMetric] = useState<"documents" | "share">("documents");
   const [comparisonYears, setComparisonYears] = useState<2 | 3 | 5>(3);
@@ -99,14 +99,14 @@ export function TrendsTab({ analysis }: { analysis: AnalysisResult }) {
                 <Button kind="secondary" size="md" type="button" onClick={() => downloadPeriodComparisonCsv(analysis, comparison)}>Download comparison CSV</Button>
               </div>
               <div className="rte-table-scroll">
-                <Table useZebraStyles size="lg" aria-label="Topic comparison between two periods">
+                <Table useZebraStyles size="lg" aria-label="Topic comparison between two periods" className="rte-comparison-table">
                   <TableHead><TableRow><TableHeader>Topic</TableHeader><TableHeader>{comparison.periodA.startYear}–{comparison.periodA.endYear}<br />avg/year</TableHeader><TableHeader>{comparison.periodB.startYear}–{comparison.periodB.endYear}<br />avg/year</TableHeader><TableHeader>Annual-rate change</TableHeader><TableHeader>Share change</TableHeader><TableHeader>Rank change</TableHeader></TableRow></TableHead>
                   <TableBody>{comparison.rows.map((row) => <TableRow key={row.topicId}>
                     <TableCell>{row.topic}</TableCell>
                     <TableCell>{row.periodAAnnualAverage.toFixed(1)}</TableCell>
                     <TableCell>{row.periodBAnnualAverage.toFixed(1)}</TableCell>
-                    <TableCell>{row.annualRateChange === null ? row.periodBAnnualAverage > 0 ? "New in selection" : "—" : `${row.annualRateChange >= 0 ? "+" : ""}${(row.annualRateChange * 100).toFixed(1)}%`}</TableCell>
-                    <TableCell>{`${((row.periodBShare - row.periodAShare) * 100).toFixed(2)} pp`}</TableCell>
+                    <TableCell>{formatAnnualRateChange(row.annualRateChange, row.periodBAnnualAverage)}</TableCell>
+                    <TableCell>{formatPercentagePointChange(row.periodBShare - row.periodAShare)}</TableCell>
                     <TableCell>{row.rankChange === 0 ? "No change" : `${row.rankChange > 0 ? "+" : ""}${row.rankChange}`}</TableCell>
                   </TableRow>)}</TableBody>
                 </Table>
@@ -135,4 +135,15 @@ export function TrendsTab({ analysis }: { analysis: AnalysisResult }) {
       ) : null}
     </div>
   );
+}
+
+function formatAnnualRateChange(change: number | null, recentAverage: number): string {
+  if (change === null) return recentAverage > 0 ? "New in selection" : "—";
+  const percentage = Math.abs(change * 100) < 0.05 ? 0 : change * 100;
+  return `${percentage > 0 ? "+" : ""}${percentage.toFixed(1)}%`;
+}
+
+function formatPercentagePointChange(change: number): string {
+  const points = Math.abs(change * 100) < 0.005 ? 0 : change * 100;
+  return `${points > 0 ? "+" : ""}${points.toFixed(2)} pp`;
 }

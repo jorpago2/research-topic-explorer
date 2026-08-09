@@ -11,7 +11,7 @@ No Clarivate/JCR website is scraped. The repository does not include the supplie
 - Loads the current OpenAlex Subfield catalog and automatically derives an ISSN-bearing journal set from primary-topic work groups.
 - Supports two explicit analysis scopes: **Strict selected subfield** filters the final corpus by `primary_topic.subfield.id`, while **Entire journal set** analyzes every selected-year work from the discovered journals.
 - Ranks OpenAlex primary topics for a publication year using `group_by=primary_topic.id`; each classified work contributes once to the ranking.
-- Shows counts, shares, classification coverage, hierarchy metadata, five-year trends, year-over-year growth, and a journal breakdown.
+- Shows counts, shares, classification coverage, hierarchy metadata, multi-year trends, year-over-year growth, and a journal breakdown.
 - Shows bounded evidence publications for a Topic and compares selected Topics across adjacent two-, three-, or five-year periods.
 - Builds a bounded topic co-occurrence network with raw, VOS association-strength, cosine, or Jaccard link weighting and renders it with the official `vosviewer-online` React component.
 - Exports topic rankings, trends, and journals as CSV and the network as VOSviewer JSON.
