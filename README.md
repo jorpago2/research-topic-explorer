@@ -43,7 +43,6 @@ The VOSviewer dependency tree currently includes an older `qrcode.react` peer de
 - A Cloudflare account with Workers enabled
 - An OpenAlex API key
 - `pdftotext` (Poppler) only when extracting an owner-supplied JIF PDF
-- Permission to redistribute Clarivate JIF values if you intend to publish them with the site
 
 ## Local setup
 
@@ -88,23 +87,19 @@ The analyzed publication year is independent of this Source-level taxonomy. The 
 
 The older owner-supplied category ingestion layer remains in `public/data/categories/` for compatibility and validation, but it is no longer used by the main selector.
 
-## Optional JIF enrichment
+## Private local JIF enrichment
 
-The local PDF is parsed automatically by eISSN. The safe default writes to ignored private storage:
+The local PDF is parsed automatically by eISSN. Extraction writes only to ignored private storage:
 
 ```bash
 npm run extract:jif
 ```
 
-This generated `data-private/jif-2026.json` is not bundled or committed. The parser rejects a suspiciously incomplete extraction and never falls back to fuzzy journal-name matching.
+This generates `data-private/jif-2026-local.json`. The file is not bundled or committed. The parser rejects a suspiciously incomplete extraction and never falls back to fuzzy journal-name matching.
 
-Only if you have confirmed redistribution rights, create the public compact dataset and update its manifest automatically:
+Open the application, select **Choose JIF JSON**, and choose that generated file. The browser validates the complete schema and keeps the parsed data only in the current tab's memory. It does not upload the file, call the Worker with JIF data, or write to local storage, session storage, or IndexedDB. Reloading or closing the tab removes the enrichment.
 
-```bash
-npm run extract:jif -- --public --confirm-redistribution-rights
-```
-
-The UI then shows JIF and quartile in the Journals tab and CSV export. Missing JIF remains blank and never excludes a journal. The source/provider and edition stay explicit. The current supplied PDF yielded 21,647 unique eISSN records; rows without an eISSN cannot be linked automatically with adequate confidence.
+The UI then shows JIF and quartile in the Journals tab and in a user-initiated local CSV export. Missing JIF remains blank and never excludes a journal. The source/provider and edition stay explicit. The supplied PDF yielded 21,648 unique, checksum-valid eISSN records; rows without a valid eISSN cannot be linked automatically with adequate confidence. The extraction script refuses any output path beneath `public/data/`.
 
 ## Methodology
 
@@ -116,7 +111,7 @@ The UI then shows JIF and quartile in the Journals tab and CSV export. Missing J
 - **XPAC:** every works query explicitly sets `include_xpac=false`.
 - **Trends:** grouped annual counts are used; growth is shown only when the previous-year topic count is at least 20 documents.
 - **Network:** nodes are the top 20, 30, or 40 primary topics. For each seed node, matching works are grouped by all attached `topics.id`; links therefore mean topic co-occurrence within works, not citation or semantic similarity. Edges below strength 5 are removed and at most 250 remain.
-- **JIF:** optional Clarivate metadata is matched after classification by exact eISSN and does not change any result.
+- **JIF:** optional, locally loaded Clarivate metadata is matched after classification by exact eISSN and does not change any result.
 
 All computations use grouped OpenAlex API responses rather than downloading individual work records. Browser aggregation chunks Source IDs in groups of at most 100, follows every cursor page, merges Topic IDs, and limits concurrent requests to two.
 
@@ -197,7 +192,7 @@ CSV and JSON downloads carry or derive the OpenAlex Subfield ID/name, journal-se
 
 - OpenAlex primary-topic assignments are non-exclusive at journal-set level and can change when OpenAlex updates its records.
 - The 100-Source cap favors journals with the most matching primary-topic articles/reviews and is reported in methodology metadata.
-- Clarivate JIF data is not published by default; the deployer is responsible for confirming redistribution rights.
+- Clarivate JIF data is never loaded from the public deployment. Users must select a legitimate local dataset, which remains in browser memory for the current tab only.
 - Results inherit OpenAlex coverage and classification quality and can change as OpenAlex updates records.
 - The official VOSviewer bundle is large (about 1.55 MB compressed in the current build), but is split into a lazy chunk and is not loaded for ranking, trends, or journal views.
 - A shared public API key still has budget and abuse risk. The closed routes, aggregation, caching, rate limiting, and conservative UI limits reduce that risk but cannot eliminate non-browser abuse.

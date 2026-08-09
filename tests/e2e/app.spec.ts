@@ -1,7 +1,6 @@
 import { expect, test } from "@playwright/test";
 
 test.beforeEach(async ({ page }) => {
-  await page.route("**/data/journal-metrics/index.json", (route) => route.fulfill({ json: { schemaVersion: 1, datasets: [] } }));
   await page.route("**/health", (route) => route.fulfill({ json: { ok: true, data: { status: "ok", version: "v1" } } }));
   await page.route("**/v1/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
@@ -22,6 +21,19 @@ test.beforeEach(async ({ page }) => {
 test("runs the shareable analysis workflow under a project base path", async ({ page }) => {
   await page.goto("?category=3107&year=2024&types=article,review&tab=overview&nodes=20");
   await expect(page.getByRole("heading", { name: "Explore an OpenAlex research subfield" })).toBeVisible();
+  await page.getByLabel("Choose JIF JSON").setInputFiles({
+    name: "jif-2026-local.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify({
+      schemaVersion: 1,
+      provider: "Clarivate",
+      metric: "Journal Impact Factor",
+      edition: "2026",
+      sourceNote: "Local E2E fixture",
+      journals: [{ journalName: "Optics Express", eissn: "1094-4087", index: "SCIE", citations: 100, jif: 4.8, previousJif: 4.6, quartile: "Q1", edition: "2026", provider: "Clarivate" }],
+    })),
+  });
+  await expect(page.getByText(/1 journal records/)).toBeVisible();
   await page.getByRole("button", { name: "Analyze" }).click();
   await expect(page.getByRole("heading", { name: "Optics · 2024" })).toBeVisible();
   await expect(page.getByText("Metasurfaces", { exact: true }).first()).toBeVisible();
@@ -35,6 +47,7 @@ test("runs the shareable analysis workflow under a project base path", async ({ 
   await expect(page.getByRole("heading", { name: "Topic trends" })).toBeVisible();
   await page.getByRole("tab", { name: "Journals" }).click();
   await expect(page.getByText("Optics Express", { exact: true }).last()).toBeVisible();
+  await expect(page.locator('td[data-label="JIF"]')).toHaveText("4.8");
   await page.getByRole("tab", { name: "Network" }).click();
   await page.getByRole("button", { name: "Generate network" }).click();
   await expect(page.locator(".vosviewer-frame")).toBeVisible({ timeout: 20_000 });

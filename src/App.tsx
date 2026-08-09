@@ -10,16 +10,17 @@ import { Footer } from "./components/Footer";
 import { ResultTabs } from "./components/ResultTabs";
 import { TopicDetailDialog } from "./components/TopicDetailDialog";
 import { JournalsTab } from "./features/journals/JournalsTab";
-import { fetchLatestJifDataset } from "./features/journal-metrics/api";
+import { LocalJifLoader } from "./features/journal-metrics/LocalJifLoader";
+import { parseLocalJifFile } from "./features/journal-metrics/local";
 import { MethodologyTab } from "./features/methodology/MethodologyTab";
 import { NetworkTab } from "./features/network/NetworkTab";
-import { analyzeOpenAlexSubfield, type AnalysisPhase } from "./features/topic-ranking/service";
+import { analyzeOpenAlexSubfield, applyJifDataset, type AnalysisPhase } from "./features/topic-ranking/service";
 import { OverviewTab } from "./features/topic-ranking/OverviewTab";
 import { TrendsTab } from "./features/trends/TrendsTab";
 import { apiRequest } from "./lib/api/client";
 import { healthSchema, subfieldsSchema } from "./lib/api/schemas";
 import { readUrlState, writeUrlState } from "./lib/url-state";
-import type { AnalysisResult, DocumentTypeMode, ResultsTab, TopicRankingRow } from "./types/domain";
+import type { AnalysisResult, DocumentTypeMode, JifDataset, ResultsTab, TopicRankingRow } from "./types/domain";
 
 export default function App() {
   const initial = useMemo(readUrlState, []);
@@ -30,6 +31,10 @@ export default function App() {
   const [networkNodes, setNetworkNodes] = useState<20 | 30 | 40>(initial.networkNodes);
   const [phase, setPhase] = useState<AnalysisPhase>("resolving");
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
+  const [jifDataset, setJifDataset] = useState<JifDataset | null>(null);
+  const [jifFileName, setJifFileName] = useState<string | null>(null);
+  const [jifLoading, setJifLoading] = useState(false);
+  const [jifError, setJifError] = useState<string | null>(null);
   const [selectedTopic, setSelectedTopic] = useState<TopicRankingRow | null>(null);
   const controllerRef = useRef<AbortController | null>(null);
 
@@ -38,12 +43,6 @@ export default function App() {
     queryKey: ["openalex-subfields"],
     queryFn: ({ signal }) => apiRequest("/v1/openalex-subfields", subfieldsSchema, {}, signal),
     staleTime: 24 * 60 * 60_000,
-  });
-  const jifQuery = useQuery({
-    queryKey: ["jif-dataset"],
-    queryFn: ({ signal }) => fetchLatestJifDataset(signal),
-    staleTime: Infinity,
-    enabled: false,
   });
   const selectedSubfield = subfieldsQuery.data?.subfields.find((subfield) => subfield.id === categoryId);
 
@@ -64,7 +63,6 @@ export default function App() {
       controllerRef.current?.abort();
       const controller = new AbortController();
       controllerRef.current = controller;
-      const jifDataset = await jifQuery.refetch().then((result) => result.data ?? null).catch(() => null);
       return analyzeOpenAlexSubfield(selectedSubfield, year, documentTypeMode, jifDataset, setPhase, controller.signal);
     },
     onSuccess: (result) => {
@@ -86,6 +84,26 @@ export default function App() {
     if (analysis) setTab("methodology");
     requestAnimationFrame(() => document.getElementById(analysis ? "panel-methodology" : "methodology-note")?.scrollIntoView({ behavior: "smooth", block: "start" }));
   }
+  async function loadLocalJif(file: File) {
+    setJifLoading(true);
+    setJifError(null);
+    try {
+      const dataset = await parseLocalJifFile(file);
+      setJifDataset(dataset);
+      setJifFileName(file.name);
+      setAnalysis((current) => current ? applyJifDataset(current, dataset) : current);
+    } catch (error) {
+      setJifError(error instanceof Error ? error.message : "The JIF file could not be validated.");
+    } finally {
+      setJifLoading(false);
+    }
+  }
+  function clearLocalJif() {
+    setJifDataset(null);
+    setJifFileName(null);
+    setJifError(null);
+    setAnalysis((current) => current ? applyJifDataset(current, null) : current);
+  }
 
   const mutationError = analysisMutation.error instanceof Error && analysisMutation.error.name !== "AbortError" ? analysisMutation.error.message : null;
   return (
@@ -104,6 +122,17 @@ export default function App() {
           onYearChange={changeYear}
           onDocumentTypeChange={changeTypes}
           onAnalyze={() => analysisMutation.mutate()}
+        />
+        <LocalJifLoader
+          dataset={jifDataset}
+          fileName={jifFileName}
+          loading={jifLoading}
+          disabled={jifLoading || analysisMutation.isPending}
+          error={jifError}
+          matchedSources={analysis ? analysis.jifBySourceId.size : null}
+          totalSources={analysis ? analysis.coverage.uniqueSources.length : null}
+          onFile={loadLocalJif}
+          onClear={clearLocalJif}
         />
 
         {subfieldsQuery.isPending ? <div className="catalog-loading" role="status">Loading the OpenAlex taxonomy…</div> : null}
