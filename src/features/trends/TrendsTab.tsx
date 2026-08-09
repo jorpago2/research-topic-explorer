@@ -193,7 +193,10 @@ export function TrendsTab({ analysis }: { analysis: AnalysisResult }) {
             </div>
             <Grid narrow className="rte-control-grid">
               <Column sm={4} md={5} lg={8}><Select id="actor-topic" labelText="Topic for actor analysis" value={actorTopicId} onChange={(event) => { setActorTopicId(event.target.value); setActorRequestKey(null); }} disabled={!candidates.length}>{candidates.map((topic) => <SelectItem key={topic.topicId} value={topic.topicId} text={topic.name} />)}</Select></Column>
-              <Column sm={4} md={3} lg={8} className="rte-form-action"><Button type="button" size="lg" onClick={() => setActorRequestKey(actorKey)} disabled={!comparison || actorQuery.isFetching}>{actorQuery.isFetching ? "Analyzing actors…" : actorQuery.data && actorRequestKey === actorKey ? "Refresh actors" : "Analyze actors"}</Button></Column>
+              <Column sm={4} md={3} lg={8} className="rte-form-action"><Button type="button" size="lg" onClick={() => {
+                if (actorQuery.data && actorRequestKey === actorKey) void actorQuery.refetch();
+                else setActorRequestKey(actorKey);
+              }} disabled={!comparison || actorQuery.isFetching}>{actorQuery.isFetching ? "Analyzing actors…" : actorQuery.data && actorRequestKey === actorKey ? "Refresh actors" : "Analyze actors"}</Button></Column>
             </Grid>
             {actorQuery.isFetching ? <div className="rte-loading-block"><InlineLoading description="Comparing countries and institutions…" /></div> : actorQuery.isError ? <div className="rte-notification-block"><InlineNotification kind="error" lowContrast hideCloseButton title="Actor comparison unavailable" subtitle={actorQuery.error.message} /></div> : actorQuery.data ? <>
               {actorQuery.data.truncated ? <div className="rte-notification-block"><InlineNotification kind="info" lowContrast hideCloseButton title="Bounded actor comparison" subtitle="Each period uses the top 100 OpenAlex groups; lower-ranked actors are not included." /></div> : null}

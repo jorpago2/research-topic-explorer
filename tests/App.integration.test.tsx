@@ -139,6 +139,10 @@ describe("application workflow", () => {
     fireEvent.click(screen.getByRole("button", { name: "Analyze actors" }));
     expect(await screen.findByText("Universitat de València")).toBeInTheDocument();
 
+    const actorCallsBeforeRefresh = groupedRequestBodies.filter((request) => request.path === "/v1/topic-actors").length;
+    fireEvent.click(screen.getByRole("button", { name: "Refresh actors" }));
+    await waitFor(() => expect(groupedRequestBodies.filter((request) => request.path === "/v1/topic-actors").length).toBeGreaterThan(actorCallsBeforeRefresh));
+
     fireEvent.click(screen.getByRole("tab", { name: "Journals" }));
     expect(await screen.findByText("Optics Express", { selector: 'td[data-label="Journal"]' })).toBeInTheDocument();
     expect(screen.getByText("4.8", { selector: 'td[data-label="JIF"]' })).toBeInTheDocument();
