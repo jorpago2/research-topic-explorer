@@ -1,6 +1,6 @@
 import { buildCoverageReport, buildTopicRanking, chunkArray, mergeGroupedCounts } from "../../lib/analysis";
 import { apiRequest } from "../../lib/api/client";
-import { groupedSchema, resolveSourcesSchema, topicDetailsSchema } from "../../lib/api/schemas";
+import { groupedSchema, resolveSourcesSchema, subfieldSourcesSchema, topicDetailsSchema } from "../../lib/api/schemas";
 import { mapWithConcurrency } from "../../lib/concurrency";
 import { deduplicateIssns } from "../../lib/issn";
 import type {
@@ -8,12 +8,17 @@ import type {
   CategoryDefinition,
   DocumentTypeMode,
   GroupRow,
+  JifDataset,
+  JournalImpactMetric,
+  OpenAlexSubfield,
+  ResolvedSource,
   TopicDetails,
 } from "../../types/domain";
 
 export const CLIENT_SOURCE_CHUNK_SIZE = 100;
 export const CLIENT_GROUP_CONCURRENCY = 2;
 export const TOPIC_METADATA_LIMIT = 40;
+export const MAX_DISCOVERED_SOURCES = 500;
 
 export type AnalysisPhase = "resolving" | "ranking" | "metadata" | "preparing";
 
@@ -56,8 +61,79 @@ export async function analyzeCategory(
   const coverage = buildCoverageReport(category.journals, resolution.sources, resolution.unresolvedIssns);
   if (!coverage.uniqueSources.length) throw new Error("None of the journals in this category could be matched to OpenAlex Sources.");
 
+  return analyzeResolvedJournalSet(category, coverage.uniqueSources, coverage, year, documentTypeMode, onPhase, signal);
+}
+
+function matchJifBySource(sources: ResolvedSource[], dataset?: JifDataset | null): Map<string, JournalImpactMetric> {
+  if (!dataset) return new Map();
+  const byIssn = new Map(dataset.journals.map((metric) => [metric.eissn.toUpperCase(), metric]));
+  const result = new Map<string, JournalImpactMetric>();
+  for (const source of sources) {
+    const metric = [...source.issns, ...(source.issnL ? [source.issnL] : [])]
+      .map((issn) => byIssn.get(issn.toUpperCase()))
+      .find((value): value is JournalImpactMetric => Boolean(value));
+    if (metric) result.set(source.id, metric);
+  }
+  return result;
+}
+
+async function discoverSubfieldSources(subfieldId: string, signal?: AbortSignal): Promise<{ sources: ResolvedSource[]; truncated: boolean }> {
+  const sources = new Map<string, ResolvedSource>();
+  let cursor = "*";
+  for (let page = 0; page < MAX_DISCOVERED_SOURCES / 100; page += 1) {
+    const response = await apiRequest("/v1/openalex-subfield-sources", subfieldSourcesSchema, { subfieldId, cursor }, signal);
+    for (const source of response.sources) sources.set(source.id, source);
+    if (!response.nextCursor) return { sources: [...sources.values()], truncated: false };
+    if (response.nextCursor === cursor) throw new Error("The research data service returned a repeated cursor.");
+    cursor = response.nextCursor;
+  }
+  return { sources: [...sources.values()].slice(0, MAX_DISCOVERED_SOURCES), truncated: true };
+}
+
+export async function analyzeOpenAlexSubfield(
+  subfield: OpenAlexSubfield,
+  year: number,
+  documentTypeMode: DocumentTypeMode,
+  jifDataset: JifDataset | null | undefined,
+  onPhase: (phase: AnalysisPhase) => void,
+  signal?: AbortSignal,
+): Promise<AnalysisResult> {
+  onPhase("resolving");
+  const discovery = await discoverSubfieldSources(subfield.id, signal);
+  if (!discovery.sources.length) throw new Error("OpenAlex did not return any ISSN-bearing journals for this subfield.");
+  const category: CategoryDefinition = {
+    schemaVersion: 1,
+    id: `openalex-subfield-${subfield.id}`,
+    name: subfield.displayName,
+    taxonomy: "OpenAlex Subfield",
+    sourceNote: "Journal membership is derived from the up to 25 highest-volume OpenAlex Topics attached to each Source.",
+    journals: discovery.sources.map((source) => ({ name: source.displayName, issns: source.issns.length ? source.issns : source.issnL ? [source.issnL] : [] })),
+  };
+  const coverage = buildCoverageReport(category.journals, discovery.sources, []);
+  return analyzeResolvedJournalSet(category, discovery.sources, coverage, year, documentTypeMode, onPhase, signal, {
+    journalSetMethod: "openalex-source-top-topics",
+    sourceSetTruncated: discovery.truncated,
+    jifDataset,
+  });
+}
+
+async function analyzeResolvedJournalSet(
+  category: CategoryDefinition,
+  sources: ResolvedSource[],
+  coverage: AnalysisResult["coverage"],
+  year: number,
+  documentTypeMode: DocumentTypeMode,
+  onPhase: (phase: AnalysisPhase) => void,
+  signal?: AbortSignal,
+  options?: {
+    journalSetMethod?: "openalex-source-top-topics";
+    sourceSetTruncated?: boolean;
+    jifDataset?: JifDataset | null;
+  },
+): Promise<AnalysisResult> {
+
   onPhase("ranking");
-  const sourceChunks = chunkArray(coverage.uniqueSources.map((source) => source.id).sort(), CLIENT_SOURCE_CHUNK_SIZE);
+  const sourceChunks = chunkArray(sources.map((source) => source.id).sort(), CLIENT_SOURCE_CHUNK_SIZE);
   const documentTypes = documentTypesForMode(documentTypeMode);
   const chunkResults = await mapWithConcurrency(sourceChunks, CLIENT_GROUP_CONCURRENCY, (sourceIds) =>
     fetchAllGroupedPages("/v1/group-primary-topics", { sourceIds, year, types: documentTypes, cursor: "*" }, signal),
@@ -72,6 +148,7 @@ export async function analyzeCategory(
     ? await apiRequest("/v1/topic-details", topicDetailsSchema, { topicIds: ranking.slice(0, TOPIC_METADATA_LIMIT).map((topic) => topic.topicId) }, signal)
     : { topics: [] };
   const topicDetails = new Map<string, TopicDetails>(detailsResponse.topics.map((topic) => [topic.id, topic]));
+  const jifBySourceId = matchJifBySource(sources, options?.jifDataset);
 
   onPhase("preparing");
   return {
@@ -85,6 +162,7 @@ export async function analyzeCategory(
     analyzedDocuments,
     classifiedDocuments,
     classificationCoverage: analyzedDocuments > 0 ? classifiedDocuments / analyzedDocuments : 0,
+    jifBySourceId,
     metadata: {
       generatedAt: new Date().toISOString(),
       categoryId: category.id,
@@ -101,6 +179,9 @@ export async function analyzeCategory(
       topicCountingMethod: "openalex-primary-topic",
       networkMethod: "openalex-topic-cooccurrence",
       includeXpac: false,
+      ...(options?.journalSetMethod ? { journalSetMethod: options.journalSetMethod } : {}),
+      ...(options?.sourceSetTruncated !== undefined ? { sourceSetTruncated: options.sourceSetTruncated } : {}),
+      ...(options?.jifDataset ? { jifEdition: options.jifDataset.edition } : {}),
     },
   };
 }

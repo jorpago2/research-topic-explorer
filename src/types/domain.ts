@@ -30,6 +30,35 @@ export interface ResolvedSource {
   issnL: string | null;
   issns: string[];
   type: string | null;
+  worksCount?: number;
+}
+
+export interface OpenAlexSubfield {
+  id: string;
+  displayName: string;
+  field: TopicHierarchyNode | null;
+  domain: TopicHierarchyNode | null;
+}
+
+export interface JournalImpactMetric {
+  journalName: string;
+  eissn: string;
+  index: string;
+  citations: number | null;
+  jif: number | null;
+  previousJif: number | null;
+  quartile: "Q1" | "Q2" | "Q3" | "Q4" | null;
+  edition: string;
+  provider: "Clarivate";
+}
+
+export interface JifDataset {
+  schemaVersion: 1;
+  provider: "Clarivate";
+  metric: "Journal Impact Factor";
+  edition: string;
+  sourceNote: string;
+  journals: JournalImpactMetric[];
 }
 
 export interface JournalCoverageRow {
@@ -93,6 +122,7 @@ export interface JournalResultRow {
   journal: string;
   documents: number;
   share: number;
+  jif?: JournalImpactMetric;
 }
 
 export interface TopicEdge {
@@ -140,6 +170,9 @@ export interface AnalysisMetadata {
   topicCountingMethod: "openalex-primary-topic";
   networkMethod: "openalex-topic-cooccurrence";
   includeXpac: false;
+  journalSetMethod?: "openalex-source-top-topics";
+  sourceSetTruncated?: boolean;
+  jifEdition?: string;
 }
 
 export interface AnalysisResult {
@@ -153,5 +186,6 @@ export interface AnalysisResult {
   analyzedDocuments: number;
   classifiedDocuments: number;
   classificationCoverage: number;
+  jifBySourceId: Map<string, JournalImpactMetric>;
   metadata: AnalysisMetadata;
 }
