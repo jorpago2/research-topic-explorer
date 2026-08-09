@@ -18,6 +18,5 @@ export async function loadJournalBreakdown(analysis: AnalysisResult, signal?: Ab
     journal: group.displayName,
     documents: group.count,
     share: calculateShare(group.count, analysis.analyzedDocuments),
-    ...(analysis.jifBySourceId.get(group.id) ? { jif: analysis.jifBySourceId.get(group.id) } : {}),
   }));
 }

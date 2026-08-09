@@ -7,13 +7,20 @@ vi.mock("vosviewer-online", () => ({ VOSviewerOnline: ({ data }: { data: unknown
 
 function envelope(data: unknown) { return Response.json({ ok: true, data }); }
 
+const localJifDataset = {
+  schemaVersion: 1,
+  provider: "Clarivate",
+  metric: "Journal Impact Factor",
+  edition: "2026",
+  sourceNote: "Local test fixture",
+  journals: [{ journalName: "Optics Express", eissn: "1094-4087", index: "SCIE", citations: 100, jif: 4.8, previousJif: 4.6, quartile: "Q1", edition: "2026", provider: "Clarivate" }],
+};
+
 beforeEach(() => {
   window.history.replaceState(null, "", "/?category=3107&year=2024&types=article,review&tab=overview&nodes=20");
   vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     if (url.endsWith("/health")) return envelope({ status: "ok", version: "v1" });
-    if (url.endsWith("/data/journal-metrics/index.json")) return Response.json({ schemaVersion: 1, datasets: [{ edition: "2026", file: "jif-2026.json" }] });
-    if (url.endsWith("/data/journal-metrics/jif-2026.json")) return Response.json({ schemaVersion: 1, provider: "Clarivate", metric: "Journal Impact Factor", edition: "2026", sourceNote: "Fixture", journals: [{ journalName: "Optics Express", eissn: "1094-4087", index: "SCIE", citations: 100, jif: 4.8, previousJif: 4.6, quartile: "Q1", edition: "2026", provider: "Clarivate" }] });
     if (url.endsWith("/v1/openalex-subfields")) return envelope({ subfields: [{ id: "3107", displayName: "Optics", field: { id: "31", displayName: "Physics and Astronomy" }, domain: { id: "3", displayName: "Physical Sciences" } }] });
     if (url.endsWith("/v1/openalex-subfield-sources")) return envelope({ sources: [{ id: "S1", displayName: "Optics Express", issnL: "1094-4087", issns: ["1094-4087"], type: "journal", worksCount: 1000 }], nextCursor: null });
     if (url.endsWith("/v1/group-primary-topics")) return envelope({ meta: { documentCount: 100, nextCursor: null }, groups: [{ id: "T1", displayName: "Metasurfaces", count: 60 }, { id: "T2", displayName: "Integrated photonics", count: 40 }] });
@@ -41,6 +48,9 @@ describe("application workflow", () => {
     await screen.findByRole("option", { name: /Optics/ });
     const analyzeButton = await screen.findByRole("button", { name: "Analyze" });
     await waitFor(() => expect(analyzeButton).toBeEnabled());
+    const jifFile = new File([JSON.stringify(localJifDataset)], "jif-2026-local.json", { type: "application/json" });
+    fireEvent.change(screen.getByLabelText("Choose JIF JSON"), { target: { files: [jifFile] } });
+    expect(await screen.findByText(/1 journal records/)).toBeInTheDocument();
     fireEvent.click(analyzeButton);
     expect(await screen.findByRole("heading", { name: "Optics · 2024" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Metasurfaces/ })).toBeInTheDocument();
@@ -53,6 +63,7 @@ describe("application workflow", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Journals" }));
     expect(await screen.findByText("Optics Express", { selector: 'td[data-label="Journal"]' })).toBeInTheDocument();
     expect(screen.getByText("4.8", { selector: 'td[data-label="JIF"]' })).toBeInTheDocument();
+    expect(screen.getByText(/1\/1 current Sources matched/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: "Network" }));
     fireEvent.click(screen.getByRole("button", { name: "Generate network" }));

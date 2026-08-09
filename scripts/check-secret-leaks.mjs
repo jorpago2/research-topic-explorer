@@ -23,4 +23,11 @@ async function assertAbsent(directory, patterns) {
 
 await assertAbsent(path.resolve("dist"), ["OPENALEX_API_KEY", process.env.OPENALEX_API_KEY]);
 await assertAbsent(path.resolve("src"), ["api.openalex.org"]);
-console.info("Frontend bundle and runtime source passed secret/direct-OpenAlex checks.");
+await assertAbsent(path.resolve("src"), ["data/journal-metrics/", "localStorage", "sessionStorage", "indexedDB"]);
+
+const metricIndex = JSON.parse(await readFile(path.resolve("public/data/journal-metrics/index.json"), "utf8"));
+if (!Array.isArray(metricIndex.datasets) || metricIndex.datasets.length !== 0) {
+  throw new Error("The public JIF manifest must remain empty; use local browser import.");
+}
+
+console.info("Frontend bundle and runtime source passed secret, direct-OpenAlex, browser-storage, and private-JIF checks.");

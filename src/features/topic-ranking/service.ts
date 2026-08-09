@@ -64,7 +64,7 @@ export async function analyzeCategory(
   return analyzeResolvedJournalSet(category, coverage.uniqueSources, coverage, year, documentTypeMode, onPhase, signal);
 }
 
-function matchJifBySource(sources: ResolvedSource[], dataset?: JifDataset | null): Map<string, JournalImpactMetric> {
+export function matchJifBySource(sources: ResolvedSource[], dataset?: JifDataset | null): Map<string, JournalImpactMetric> {
   if (!dataset) return new Map();
   const byIssn = new Map(dataset.journals.map((metric) => [metric.eissn.toUpperCase(), metric]));
   const result = new Map<string, JournalImpactMetric>();
@@ -75,6 +75,17 @@ function matchJifBySource(sources: ResolvedSource[], dataset?: JifDataset | null
     if (metric) result.set(source.id, metric);
   }
   return result;
+}
+
+export function applyJifDataset(analysis: AnalysisResult, dataset?: JifDataset | null): AnalysisResult {
+  const metadata = { ...analysis.metadata };
+  if (dataset) metadata.jifEdition = dataset.edition;
+  else delete metadata.jifEdition;
+  return {
+    ...analysis,
+    jifBySourceId: matchJifBySource(analysis.coverage.uniqueSources, dataset),
+    metadata,
+  };
 }
 
 async function discoverSubfieldSources(subfieldId: string, signal?: AbortSignal): Promise<{ sources: ResolvedSource[]; truncated: boolean }> {
